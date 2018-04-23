@@ -5,3 +5,4 @@ authors = ["Stefan <falken@umich.edu>"]
 
 [lib]
 name = "cpu"
+path = "src/cpu/mod.rs"

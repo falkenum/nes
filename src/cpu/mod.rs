@@ -1,4 +1,6 @@
 
+mod instructions;
+
 #[allow(dead_code)] // TODO delete
 #[derive(Debug)]
 pub struct CPU {
@@ -8,25 +10,6 @@ pub struct CPU {
     sp : u8,
     pc : u16,
     flags : u8,
-}
-
-trait AddrMode {
-    fn exec(InstrArg, &CPU);
-}
-// instruction args are only up to 2 bytes
-type InstrArg = u16;
-fn exec_op (cpu : &CPU, op : u8, arg : InstrArg) {
-
-    fn foo() {};
-
-    // gen_instr!(&cpu, u)
-    /// test
-    const instr : [fn(); 2] = [|| (), || ()]; /* modify regs or mem */
-    instr[op as usize]();
-}
-
-mod instructions {
-
 }
 
 pub struct RAM {}
@@ -49,7 +32,8 @@ mod tests {
     use super::*;
     #[test]
     fn test0() {
-        let c = CPU::new();
-        println!("{:#?}", c);
+        let mut c = CPU::new();
+        c.exec_op(0xA9, 0x0500);
+        assert_eq!(c.a, 5);
     }
 }
