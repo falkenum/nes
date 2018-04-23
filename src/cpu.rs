@@ -10,11 +10,26 @@ pub struct CPU {
     flags : u8,
 }
 
-pub struct RAM {}
+trait AddrMode {
+    fn exec(InstrArg, &CPU);
+}
+// instruction args are only up to 2 bytes
+type InstrArg = u16;
+fn exec_op (cpu : &CPU, op : u8, arg : InstrArg) {
 
-/*
-Instr trait
-*/
+    fn foo() {};
+
+    // gen_instr!(&cpu, u)
+    /// test
+    const instr : [fn(); 2] = [|| (), || ()]; /* modify regs or mem */
+    instr[op as usize]();
+}
+
+mod instructions {
+
+}
+
+pub struct RAM {}
 
 impl CPU {
     pub fn new() -> CPU {
@@ -27,9 +42,6 @@ impl CPU {
             flags : 0,
         }
     }
-
-    // execute instruction
-    // fn exec(instr : ) {}
 }
 
 #[cfg(test)]

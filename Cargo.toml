@@ -5,8 +5,3 @@ authors = ["Stefan <falken@umich.edu>"]
 
 [lib]
 name = "cpu"
-path = "src/lib.rs"
-
-[[bin]]
-name = "nes"
-path = "src/main.rs"
