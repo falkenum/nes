@@ -1,5 +1,6 @@
 
 #![allow(dead_code)]
+mod instructions;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
@@ -16,7 +17,7 @@ struct CPUMem {
     ram : [u8; RAM_SIZE],
 }
 
-struct Flags {
+struct CPUFlags {
     n : bool,
     v : bool,
     b : bool,
@@ -32,7 +33,7 @@ pub struct CPU {
     y : u8,
     sp : u8,
     pc : u16,
-    flags : Flags,
+    flags : CPUFlags,
     mem : CPUMem,
 }
 
@@ -61,6 +62,13 @@ impl IndexMut<usize> for CPUMem {
 impl CPU {
     pub fn step (&mut self) {
     }
+
+    fn lda(&mut self, val : u8) {
+        if      val      == 0 { self.flags.z = true; }
+        else if val >> 7 == 1 { self.flags.n = true; }
+        self.a = val;
+    }
+
     pub fn new() -> CPU {
         CPU {
             a : 0,
@@ -68,7 +76,7 @@ impl CPU {
             y : 0,
             sp : 0,
             pc : 0,
-            flags : Flags {
+            flags : CPUFlags {
                 n : false,
                 v : false,
                 b : false,
@@ -88,15 +96,14 @@ impl CPU {
 mod tests {
     use super::*;
     #[test]
-    fn test_cpu_mem() {
+    fn mem() {
         let mut mem = CPUMem { ram : [0; RAM_SIZE] };
 
-        mem.ram[8 as usize] = 8;
-        // for i in (&mut mem.ram).iter() {
-        // }
-
-        assert_eq!(mem[8], 8);
-        // assert_eq!(mem[0x7FF], 1);
-        // assert_eq!(mem[0x7FF], 1);
+        for i in 0..(RAM_LAST + 1) {
+            mem[i] = (i % RAM_SIZE) as u8;
+        }
+        for i in 0..(RAM_LAST + 1) {
+            assert_eq!(mem[i], (i % RAM_SIZE) as u8);
+        }
     }
 }
