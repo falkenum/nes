@@ -1,7 +1,7 @@
 
 use super::CPU;
 
-const INSTR : [fn(&mut CPU); 1] = [CPU::step; 1];
+const INSTR : [fn(&mut CPU, u8); 1] = [CPU::lda; 1];
 
 const NUM_OPCODES : usize = 256;
 const FOO : [&Fn(&mut CPU); NUM_OPCODES] = [
