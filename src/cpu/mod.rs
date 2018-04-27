@@ -73,12 +73,19 @@ impl CPU {
         self.indirect(a as u16)
     }
     fn indirect_y  (&self, val : u8)  -> u16 {
-        // self.indirect(val) + self.y as u16
-        0
+        self.indirect(val as u16) + self.y as u16
     }
     fn indirect    (&self, val : u16) -> u16 {
+        let addr_low = val as u8;
+        let addr_high = val & 0xFF00;
         let i = val as usize;
-        self.mem[i] as u16 + ((self.mem[i + 1] as u16) << 8)
+        // We need to add 1 to the lower 8 bits separately in order to
+        // accurately simulate how the 6502 handles page boundries -- A page is
+        // 0xFF bytes.
+        // If mem[0] = 1 and mem[FF] = 2, then JMP ($00FF) should evaluate
+        // to JMP $0201
+        let j = (addr_low.wrapping_add(1) as u16 + addr_high) as usize;
+        self.mem[i] as u16 + ((self.mem[j] as u16) << 8)
     }
 
     pub fn step (&mut self) {
@@ -191,24 +198,39 @@ mod tests {
         c.mem[0x2] = 3;
         c.mem[0xFE] = 1;
         c.mem[0xFF] = 2;
+        c.mem[0x100] = 4;
+        c.mem[0x1FF] = 5;
+        c.mem[0x200] = 6;
 
         assert_eq!(c.indirect(0x0000_u16), 0x0B0A_u16);
         assert_eq!(c.indirect(0x00FE_u16), 0x0201_u16);
 
-        // TODO figure out if this should pass
-        // assert_eq!(c.indirect(0x00FF_u16), 0x0A02_u16);
+        // wrap around
+        assert_eq!(c.indirect(0x00FF_u16), 0x0A02_u16);
+        // wrap around
+        assert_eq!(c.indirect(0x01FF_u16), 0x0405_u16);
 
         c.x = 0x00;
         assert_eq!(c.indirect_x(0x00_u8), 0x0B0A_u16);
         assert_eq!(c.indirect_x(0xFE_u8), 0x0201_u16);
         c.x = 0xFE;
+        // wrap around
         assert_eq!(c.indirect_x(0x02_u8), 0x0B0A_u16);
         assert_eq!(c.indirect_x(0x00_u8), 0x0201_u16);
 
+        // wrap around
+        assert_eq!(c.indirect_x(0x01_u8), 0x0A02_u16);
+
         c.y = 0x00;
         assert_eq!(c.indirect_y(0x00_u8), 0x0B0A_u16);
+        // wrap around
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0A02_u16);
 
-        // fn indirect_y  (&self, val : u16) -> u16
-        // fn indirect    (&self, val : u16) -> u16
+        // All kinds of wrap around that I'm still confused about
+        c.y = 0x01;
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0A03_u16);
+
+        c.y = 0xFE;
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0B00_u16);
     }
 }
