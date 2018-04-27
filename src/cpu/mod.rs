@@ -1,6 +1,8 @@
 
 #![allow(dead_code)]
 mod instructions;
+use instructions::InstrArg;
+use instructions::INSTR;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
@@ -35,6 +37,12 @@ pub struct CPU {
     pc : u16,
     flags : CPUFlags,
     mem : CPUMem,
+}
+use std::fmt;
+impl fmt::Debug for CPU {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "CPU")
+    }
 }
 
 use std::ops::{ Index, IndexMut };
@@ -89,9 +97,30 @@ impl CPU {
     }
 
     pub fn step (&mut self) {
+        let op = self.pc_getb();
+        INSTR[op as usize](self);
     }
 
-    fn lda(&mut self, val : u8) {
+    fn pc_getdb(&mut self) -> u16  {
+        let ret = self.mem[self.pc as usize] as u16 +
+            ((self.mem[(self.pc + 1) as usize] as u16) << 8);
+        self.pc += 2;
+        ret
+    }
+    fn pc_getb(&mut self) -> u8 {
+        let ret = self.mem[self.pc as usize];
+        self.pc += 1;
+        ret
+    }
+
+    fn lda(&mut self, arg : InstrArg) {
+        let val;
+        match arg {
+            // immediate value
+            InstrArg::OneByte(imm)  => val = imm,
+            InstrArg::TwoByte(addr) => val = self.mem[addr as usize],
+            _                       => panic!("illegal instruction"),
+        }
         // checking if val is zero or negative
         self.flags.z = val        == 0;
         self.flags.n = val & 0x80 != 0;
@@ -139,12 +168,14 @@ mod tests {
 
     #[test]
     fn lda() {
+        // let lda_imm = instructions::INSTR[0xA9];
+        // lda_imm(&mut c);
         let mut c = CPU::new();
-        c.lda(0x00);
+        c.lda(InstrArg::OneByte(0x00));
         assert_eq!(c.a, 0x00);
         assert_eq!(c.flags.z, true);
         assert_eq!(c.flags.n, false);
-        c.lda(0xFF);
+        c.lda(InstrArg::OneByte(0xFF));
         assert_eq!(c.a, 0xFF);
         assert_eq!(c.flags.z, false);
         assert_eq!(c.flags.n, true);
