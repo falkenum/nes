@@ -1,0 +1,6 @@
+#!/bin/bash
+
+#echo -n -e '\x4e\x45\x53\x1a\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+#     > test.nes
+
+./assembler --setpc 0 -o test.nes test.s

@@ -1,12 +1,12 @@
 
-#![allow(dead_code)]
-mod instructions;
-use instructions::InstrArg;
-use instructions::INSTR;
+mod decode;
+use super::cartridge::Cartridge;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
 const RAM_LAST : usize = 0x1FFF;
+const CART_FIRST : usize = 0x4020;
+const CART_LAST : usize = 0xFFFF;
 
 struct CPUMem {
     // 0000 - 07FF : ram
@@ -17,7 +17,9 @@ struct CPUMem {
     // 4018 - 401F : test mode stuff
     // 4020 - FFFF : cartridge
     ram : [u8; RAM_SIZE],
+    cart : Cartridge,
 }
+
 
 struct CPUFlags {
     n : bool,
@@ -41,7 +43,7 @@ pub struct CPU {
 use std::fmt;
 impl fmt::Debug for CPU {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CPU")
+        write!(f, "CPU reg a: {}", self.a)
     }
 }
 
@@ -51,6 +53,7 @@ impl Index<usize> for CPUMem {
     fn index(&self, index: usize) -> &Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &self.ram[index % RAM_SIZE],
+            CART_FIRST...CART_LAST => &self.cart[index],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
@@ -61,44 +64,25 @@ impl IndexMut<usize> for CPUMem {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &mut self.ram[index % RAM_SIZE],
+            CART_FIRST...CART_LAST => &mut self.cart[index],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
     }
 }
 
+// describes the possible types of arguments for instructions
+enum InstrArg {
+    Empty,
+    OneByte(u8),
+    TwoByte(u16),
+}
+
 impl CPU {
-    fn immediate   (&self, val : u8)  -> u8  { val }
-    fn absolute    (&self, val : u16) -> u16 { val }
-    // TODO figure out if adding the index actually should wrap
-    fn absolute_x  (&self, val : u16) -> u16 { val.wrapping_add(self.x as u16) }
-    fn absolute_y  (&self, val : u16) -> u16 { val.wrapping_add(self.y as u16) }
-    fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
-    fn zero_page_x (&self, val : u8)  -> u16 { val.wrapping_add(self.x) as u16 }
-    fn zero_page_y (&self, val : u8)  -> u16 { val.wrapping_add(self.y) as u16 }
-    fn indirect_x  (&self, val : u8)  -> u16 {
-        let a = val.wrapping_add(self.x);
-        self.indirect(a as u16)
-    }
-    fn indirect_y  (&self, val : u8)  -> u16 {
-        self.indirect(val as u16) + self.y as u16
-    }
-    fn indirect    (&self, val : u16) -> u16 {
-        let addr_low = val as u8;
-        let addr_high = val & 0xFF00;
-        let i = val as usize;
-        // We need to add 1 to the lower 8 bits separately in order to
-        // accurately simulate how the 6502 handles page boundries -- A page is
-        // 0xFF bytes.
-        // If mem[0] = 1 and mem[FF] = 2, then JMP ($00FF) should evaluate
-        // to JMP $0201
-        let j = (addr_low.wrapping_add(1) as u16 + addr_high) as usize;
-        self.mem[i] as u16 + ((self.mem[j] as u16) << 8)
-    }
 
     pub fn step (&mut self) {
         let op = self.pc_getb();
-        INSTR[op as usize](self);
+        decode::INSTR[op as usize](self);
     }
 
     fn pc_getdb(&mut self) -> u16  {
@@ -134,7 +118,7 @@ impl CPU {
             x : 0,
             y : 0,
             sp : 0,
-            pc : 0,
+            pc : 0x8000,
             flags : CPUFlags {
                 n : false,
                 v : false,
@@ -146,17 +130,24 @@ impl CPU {
             },
             mem : CPUMem {
                 ram : [0; RAM_SIZE],
+                cart : Cartridge::empty(),
             },
         }
+    }
+
+    pub fn load_cartridge(&mut self, newcart : Cartridge) {
+        self.mem.cart = newcart;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn mem() {
-        let mut mem = CPUMem { ram : [0; RAM_SIZE] };
+    fn ram() {
+        let mut c = CPU::new();
+        let mut mem = c.mem;
 
         for i in 0..(RAM_LAST + 1) {
             mem[i] = (i % RAM_SIZE) as u8;
@@ -184,10 +175,6 @@ mod tests {
     fn addr_modes() {
 
         let mut c = CPU::new();
-        assert_eq!(c.immediate(0x00_u8), 0x00_u8);
-        assert_eq!(c.immediate(0xFF_u8), 0xFF_u8);
-        assert_eq!(c.absolute(0x0000_u16), 0x0000_u16);
-        assert_eq!(c.absolute(0xFFFF_u16), 0xFFFF_u16);
 
         c.x = 0x00;
         assert_eq!(c.absolute_x(0x0000_u16), 0x0000_u16);

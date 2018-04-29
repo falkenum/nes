@@ -1,17 +1,42 @@
 
 use super::CPU;
+use super::InstrArg;
+#[allow(unused_imports)]
+use super::InstrArg::{ Empty, OneByte, TwoByte };
+
+// addressing modes
+impl CPU {
+    pub fn absolute_x  (&self, val : u16) -> u16 { val.wrapping_add(self.x as u16) }
+    pub fn absolute_y  (&self, val : u16) -> u16 { val.wrapping_add(self.y as u16) }
+    pub fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
+    pub fn zero_page_x (&self, val : u8)  -> u16 { val.wrapping_add(self.x) as u16 }
+    pub fn zero_page_y (&self, val : u8)  -> u16 { val.wrapping_add(self.y) as u16 }
+    pub fn indirect_x  (&self, val : u8)  -> u16 {
+        let a = val.wrapping_add(self.x);
+        self.indirect(a as u16)
+    }
+    pub fn indirect_y  (&self, val : u8)  -> u16 {
+        self.indirect(val as u16) + self.y as u16
+    }
+    pub fn indirect    (&self, val : u16) -> u16 {
+        let addr_low = val as u8;
+        let addr_high = val & 0xFF00;
+        let i = val as usize;
+        // We need to add 1 to the lower 8 bits separately in order to
+        // accurately simulate how the 6502 handles page boundries -- A page is
+        // 0xFF bytes.
+        // If mem[0] = 1 and mem[FF] = 2, then JMP ($00FF) should evaluate
+        // to JMP $0201
+        let j = (addr_low.wrapping_add(1) as u16 + addr_high) as usize;
+        self.mem[i] as u16 + ((self.mem[j] as u16) << 8)
+    }
+}
 
 fn unimplemented(_ : &mut CPU, _ : InstrArg) {
     panic!("called unimplemented instruction");
 }
 
-pub enum InstrArg {
-    Empty,
-    OneByte(u8),
-    TwoByte(u16),
-}
 
-use InstrArg::*;
 const NUM_OPCODES : usize = 256;
 pub const INSTR : [&Fn(&mut CPU); NUM_OPCODES] = [
     // TODO delete leading underscores once finished

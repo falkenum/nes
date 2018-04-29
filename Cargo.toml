@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Stefan <falken@umich.edu>"]
 
 [lib]
-name = "cpu"
-path = "src/cpu/mod.rs"
+name = "nes"
+path = "src/lib.rs"

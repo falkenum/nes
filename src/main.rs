@@ -1,6 +1,6 @@
-extern crate cpu;
+extern crate nes;
 
 /// document main
 fn main() {
-    println!("{:?}", cpu::CPU::new());
+
 }
