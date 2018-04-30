@@ -1,12 +1,35 @@
 
 mod decode;
-use super::cartridge::Cartridge;
+// use super::cartridge::Cartridge;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
 const RAM_LAST : usize = 0x1FFF;
 const CART_FIRST : usize = 0x4020;
 const CART_LAST : usize = 0xFFFF;
+
+struct Cartridge {
+    rom : [u8; 0x8000]
+}
+impl Cartridge {
+    fn new() -> Cartridge {
+        Cartridge {
+            rom : [0; 0x8000]
+        }
+    }
+}
+impl Index<usize> for Cartridge {
+    type Output = u8;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.rom[index]
+    }
+}
+
+impl IndexMut<usize> for Cartridge {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.rom[index]
+    }
+}
 
 struct CPUMem {
     // 0000 - 07FF : ram
@@ -53,7 +76,7 @@ impl Index<usize> for CPUMem {
     fn index(&self, index: usize) -> &Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &self.cart[index],
+            CART_FIRST...CART_LAST => &self.cart[index - CART_FIRST],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
@@ -64,7 +87,7 @@ impl IndexMut<usize> for CPUMem {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &mut self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &mut self.cart[index],
+            CART_FIRST...CART_LAST => &mut self.cart[index - CART_FIRST],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
@@ -73,9 +96,9 @@ impl IndexMut<usize> for CPUMem {
 
 // describes the possible types of arguments for instructions
 enum InstrArg {
-    Empty,
-    OneByte(u8),
-    TwoByte(u16),
+    Implied,
+    Immediate(u8),
+    Address(u16),
 }
 
 impl CPU {
@@ -100,9 +123,8 @@ impl CPU {
     fn lda(&mut self, arg : InstrArg) {
         let val;
         match arg {
-            // immediate value
-            InstrArg::OneByte(imm)  => val = imm,
-            InstrArg::TwoByte(addr) => val = self.mem[addr as usize],
+            InstrArg::Immediate(imm)  => val = imm,
+            InstrArg::Address(addr) => val = self.mem[addr as usize],
             _                       => panic!("illegal instruction"),
         }
         // checking if val is zero or negative
@@ -110,6 +132,13 @@ impl CPU {
         self.flags.n = val & 0x80 != 0;
 
         self.a = val;
+    }
+
+    fn sta(&mut self, arg : InstrArg) {
+        match arg {
+            InstrArg::Address(addr) => self.mem[addr as usize] = self.a,
+            _                       => panic!("illegal instruction"),
+        }
     }
 
     pub fn new() -> CPU {
@@ -130,14 +159,14 @@ impl CPU {
             },
             mem : CPUMem {
                 ram : [0; RAM_SIZE],
-                cart : Cartridge::empty(),
+                cart : Cartridge::new(),
             },
         }
     }
 
-    pub fn load_cartridge(&mut self, newcart : Cartridge) {
-        self.mem.cart = newcart;
-    }
+    // pub fn load_cartridge(&mut self, newcart : Cartridge) {
+    //     self.mem.cart = newcart;
+    // }
 }
 
 #[cfg(test)]
@@ -146,7 +175,7 @@ mod tests {
 
     #[test]
     fn ram() {
-        let mut c = CPU::new();
+        let c = CPU::new();
         let mut mem = c.mem;
 
         for i in 0..(RAM_LAST + 1) {
@@ -158,19 +187,186 @@ mod tests {
     }
 
     #[test]
-    fn lda() {
-        // let lda_imm = instructions::INSTR[0xA9];
-        // lda_imm(&mut c);
+    fn sta() {
         let mut c = CPU::new();
-        c.lda(InstrArg::OneByte(0x00));
+        // zero page
+        c.a = 3;
+        c.mem[0x8000] = 0x85;
+        c.mem[0x8001] = 0x10;
+        c.step();
+        assert_eq!(c.mem[0x0010], 3);
+
+        let mut c = CPU::new();
+        // zero page, X
+        c.a = 3;
+        c.x = 1;
+        c.mem[0x8000] = 0x95;
+        c.mem[0x8001] = 0x10;
+        c.step();
+        assert_eq!(c.mem[0x0011], 3);
+
+        let mut c = CPU::new();
+        // absolute
+        c.a = 3;
+        c.mem[0x8000] = 0x8D;
+        c.mem[0x8001] = 0xFF;
+        c.mem[0x8002] = 0x10;
+        c.step();
+        assert_eq!(c.mem[0x10FF], 3);
+
+        let mut c = CPU::new();
+        // absolute, x
+        c.a = 3;
+        c.x = 1;
+        c.mem[0x8000] = 0x9D;
+        c.mem[0x8001] = 0xFE;
+        c.mem[0x8002] = 0x10;
+        c.step();
+        assert_eq!(c.mem[0x10FF], 3);
+
+        let mut c = CPU::new();
+        // absolute, y
+        c.a = 3;
+        c.y = 1;
+        c.mem[0x8000] = 0x99;
+        c.mem[0x8001] = 0xFE;
+        c.mem[0x8002] = 0x10;
+        c.step();
+        assert_eq!(c.mem[0x10FF], 3);
+
+        let mut c = CPU::new();
+        // indirect, x
+        c.a = 3;
+        c.x = 1;
+        c.mem[0x00FF] = 0x10FF;
+        c.mem[0x8000] = 0x81;
+        c.mem[0x8001] = 0xFE;
+        c.step();
+        assert_eq!(c.mem[0x10FF], 3);
+
+        let mut c = CPU::new();
+        // indirect, y
+        c.a = 3;
+        c.y = 1;
+        c.mem[0x00FF] = 0x10FE;
+        c.mem[0x8000] = 0x91;
+        c.mem[0x8001] = 0xFF;
+        c.step();
+        assert_eq!(c.mem[0x10FF], 3);
+    }
+
+    #[test]
+    fn lda() {
+        let mut c = CPU::new();
+        c.mem[0x00] = 0x0A;
+        c.mem[0x01] = 0x0B;
+        c.mem[0x0FF] = 0x0C;
+        c.mem[0x1FFF] = 0x0D;
+
+        // lda #$07 (immediate)
+        c.mem[0x8000] = 0xA9;
+        c.mem[0x8001] = 0x07;
+        c.step();
+        assert_eq!(c.a, 0x7);
+
+        // lda $01 (zero page)
+        c.mem[0x8002] = 0xA5;
+        c.mem[0x8003] = 0x01;
+        c.step();
+        assert_eq!(c.a, 0xB);
+
+        c.x = 0xFE;
+        // lda $01,X (zero page, x)
+        c.mem[0x8004] = 0xB5;
+        c.mem[0x8005] = 0x01;
+        c.step();
+        assert_eq!(c.a, 0xC);
+
+        // lda $1FFF (absolute)
+        c.mem[0x8006] = 0xAD;
+        c.mem[0x8007] = 0xFF;
+        c.mem[0x8008] = 0x1F;
+        c.step();
+        assert_eq!(c.a, 0xD);
+
+        c.x = 1;
+        // lda $1000,X (absolute x)
+        c.mem[0x8009] = 0xBD;
+        c.mem[0x800A] = 0x00;
+        c.mem[0x800B] = 0x10;
+        c.step();
+        assert_eq!(c.a, 0xB);
+
+        c.y = 0xFF;
+        // lda $1000,Y (absolute y)
+        c.mem[0x800C] = 0xB9;
+        c.mem[0x800D] = 0x00;
+        c.mem[0x800E] = 0x10;
+        c.step();
+        assert_eq!(c.a, 0xC);
+
+        c.mem[0x00FE] = 0xAA;
+        c.mem[0x00FF] = 0xFE;
+        c.mem[0x0000] = 0x00;
+        c.x = 0xF;
+
+        // lda ($F0,X) (indirect x)
+        c.mem[0x800F] = 0xA1;
+        c.mem[0x8010] = 0xF0;
+        c.step();
+        assert_eq!(c.a, 0xAA);
+
+        c.mem[0x00FD] = 0xBB;
+        c.mem[0x00F0] = 0x0D;
+        c.y = 0xF0;
+        // lda ($F0),Y (indirect y)
+        c.mem[0x8011] = 0xB1;
+        c.mem[0x8012] = 0xF0;
+        c.step();
+        assert_eq!(c.a, 0xBB);
+    }
+
+    #[test]
+    fn mapping() {
+        let mut c = CPU::new();
+
+        c.lda(InstrArg::Immediate(0x00));
         assert_eq!(c.a, 0x00);
         assert_eq!(c.flags.z, true);
         assert_eq!(c.flags.n, false);
-        c.lda(InstrArg::OneByte(0xFF));
+        c.lda(InstrArg::Immediate(0xFF));
         assert_eq!(c.a, 0xFF);
         assert_eq!(c.flags.z, false);
         assert_eq!(c.flags.n, true);
+
+        c.mem[0x0] = 0xA;
+        c.mem[0x1] = 0xB;
+        c.mem[0xFF] = 3;
+        c.mem[0x7FF] = 4;
+
+        c.lda(InstrArg::Address(0x0000));
+        assert_eq!(c.a, 0xA);
+        assert_eq!(c.mem[0x0800], 0xA);
+        assert_eq!(c.mem[0x1000], 0xA);
+        assert_eq!(c.mem[0x1800], 0xA);
+        assert_eq!(c.flags.z, false);
+        assert_eq!(c.flags.n, false);
+        c.lda(InstrArg::Address(0x00FF));
+        assert_eq!(c.a, 0x3);
+        assert_eq!(c.flags.z, false);
+        assert_eq!(c.flags.n, false);
+        c.lda(InstrArg::Address(0x07FF));
+        assert_eq!(c.a, 0x4);
+        assert_eq!(c.mem[0x0FFF], 0x4);
+        assert_eq!(c.mem[0x17FF], 0x4);
+        assert_eq!(c.mem[0x1FFF], 0x4);
+        assert_eq!(c.flags.z, false);
+        assert_eq!(c.flags.n, false);
+
+        c.mem[0x1FFF] = 5;
+        assert_eq!(c.mem[0x07FF], 0x5);
     }
+
     #[test]
     fn addr_modes() {
 
