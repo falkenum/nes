@@ -14,6 +14,204 @@ fn ram() {
 }
 
 #[test]
+fn sbc() {
+    let mut c = CPU::new();
+    c.a = 5;
+    c.flags.c = true;
+    // pos - pos = pos
+    c.sbc(InstrArg::Immediate(3));
+    assert_eq!(c.a, 2);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.a = 5;
+    // pos - pos = neg
+    c.sbc(InstrArg::Immediate(7));
+    assert_eq!(c.a, 0xFE);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    c.sbc(InstrArg::Immediate(0xFE));
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    c.a = 0xFF;
+    c.flags.c = true;
+    // neg - neg = pos
+    c.sbc(InstrArg::Immediate(0xFF));
+    assert_eq!(c.a, 0x0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.a = 0x7F;
+    // pos - neg = neg;
+    c.sbc(InstrArg::Immediate(0x80));
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, false);
+    c.a = 0x80;
+    c.flags.c = true;
+    // neg - pos = pos;
+    c.sbc(InstrArg::Immediate(0x01));
+    assert_eq!(c.a, 0x7F);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, true);
+
+    // BCD
+    let mut c = CPU::new();
+    c.a = 0x15;
+    c.flags.c = true;
+    c.flags.d = true;
+    // pos - pos = pos
+    c.sbc(InstrArg::Immediate(0x06));
+    assert_eq!(c.a, 0x09);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    // pos - pos = neg
+    c.a = 0x05;
+    c.sbc(InstrArg::Immediate(0x06));
+    assert_eq!(c.a, 0x99);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    c.sbc(InstrArg::Immediate(0x99));
+    assert_eq!(c.a, 0x99);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    // neg - neg = pos
+    c.a = 0x80;
+    c.flags.c = true;
+    c.sbc(InstrArg::Immediate(0x80));
+    assert_eq!(c.a, 0x00);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    // pos - neg = neg;
+    c.a = 0x70;
+    c.sbc(InstrArg::Immediate(0x80));
+    assert_eq!(c.a, 0x90);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, false);
+    // neg - pos = pos;
+    c.a = 0x80;
+    c.flags.c = true;
+    c.sbc(InstrArg::Immediate(0x75));
+    assert_eq!(c.a, 0x05);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, true);
+}
+
+#[test]
+fn adc() {
+    let mut c = CPU::new();
+    c.a = 1;
+    // pos + pos = pos
+    c.adc(InstrArg::Immediate(1));
+    assert_eq!(c.a, 2);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    // pos + pos = neg
+    c.adc(InstrArg::Immediate(0x7E));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, false);
+    // neg + pos = neg
+    c.adc(InstrArg::Immediate(0x7F));
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    // neg + pos = pos
+    c.adc(InstrArg::Immediate(0x01));
+    assert_eq!(c.a, 0x00);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.adc(InstrArg::Immediate(0x01));
+    assert_eq!(c.a, 0x02);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, false);
+    c.a = 0xFF;
+    c.adc(InstrArg::Immediate(0xFF));
+    assert_eq!(c.a, 0xFE);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.a = 0x80;
+    c.adc(InstrArg::Immediate(0x80));
+    assert_eq!(c.a, 0x01);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, true);
+
+    c.a = 0xfe;
+    c.flags.c = true;
+    c.adc(InstrArg::Immediate(0x01));
+    assert_eq!(c.a, 0x00);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+
+    let mut c = CPU::new();
+    c.a = 1;
+    c.flags.d = true;
+    c.adc(InstrArg::Immediate(0x99));
+    assert_eq!(c.a, 0x00);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.a = 0x79;
+    c.adc(InstrArg::Immediate(0x1));
+    assert_eq!(c.a, 0x81);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.c, false);
+    c.adc(InstrArg::Immediate(0x99));
+    assert_eq!(c.a, 0x80);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+    c.adc(InstrArg::Immediate(0x99));
+    assert_eq!(c.a, 0x80);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.c, true);
+}
+
+#[test]
 fn eor() {
     let mut c = CPU::new();
     c.a = 0b0101_0011;

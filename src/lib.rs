@@ -10,14 +10,14 @@ pub struct NES {
 }
 
 pub mod cartridge;
-mod cpu;
+pub mod cpu;
 
-mod ppu {
+pub mod ppu {
     pub struct PPU {}
 }
-mod apu {
+pub mod apu {
     pub struct APU {}
 }
-mod controller {
+pub mod controller {
     pub struct Controller {}
 }
