@@ -1,24 +1,21 @@
-
+use super::InstrArg::{ Immediate, Address };
 use super::CPU;
-#[allow(unused_imports)]
-use super::InstrArg::{ Implied, Immediate, Address };
-
 
 // addressing modes
 impl CPU {
-    pub fn absolute_x  (&self, val : u16) -> u16 { val.wrapping_add(self.x as u16) }
-    pub fn absolute_y  (&self, val : u16) -> u16 { val.wrapping_add(self.y as u16) }
-    pub fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
-    pub fn zero_page_x (&self, val : u8)  -> u16 { val.wrapping_add(self.x) as u16 }
-    pub fn zero_page_y (&self, val : u8)  -> u16 { val.wrapping_add(self.y) as u16 }
-    pub fn indirect_x  (&self, val : u8)  -> u16 {
+    fn absolute_x  (&self, val : u16) -> u16 { val.wrapping_add(self.x as u16) }
+    fn absolute_y  (&self, val : u16) -> u16 { val.wrapping_add(self.y as u16) }
+    fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
+    fn zero_page_x (&self, val : u8)  -> u16 { val.wrapping_add(self.x) as u16 }
+    fn zero_page_y (&self, val : u8)  -> u16 { val.wrapping_add(self.y) as u16 }
+    fn indirect_x  (&self, val : u8)  -> u16 {
         let a = val.wrapping_add(self.x);
         self.indirect(a as u16)
     }
-    pub fn indirect_y  (&self, val : u8)  -> u16 {
+    fn indirect_y  (&self, val : u8)  -> u16 {
         self.indirect(val as u16) + self.y as u16
     }
-    pub fn indirect    (&self, val : u16) -> u16 {
+    fn indirect    (&self, val : u16) -> u16 {
         let addr_low = val as u8;
         let addr_high = val & 0xFF00;
         let i = val as usize;
@@ -100,7 +97,7 @@ macro_rules! instr {
 // http://www.6502.org/tutorials/6502opcodes.html
 
 const NUM_OPCODES : usize = 256;
-pub const INSTR : [&Fn(&mut CPU); NUM_OPCODES] = [
+pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x00 */ unimpl!(),
     /* 0x01 */ instr!(indirect_x, ora),
     /* 0x02 */ unimpl!(),
@@ -358,3 +355,87 @@ pub const INSTR : [&Fn(&mut CPU); NUM_OPCODES] = [
     /* 0xFE */ unimpl!(),
     /* 0xFF */ unimpl!(),
 ];
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn addr_modes() {
+
+        let mut c = super::CPU::new();
+
+        c.x = 0x00;
+        assert_eq!(c.absolute_x(0x0000_u16), 0x0000_u16);
+        assert_eq!(c.absolute_x(0xFFFF_u16), 0xFFFF_u16);
+        c.x = 0xFF;
+        assert_eq!(c.absolute_x(0x0000_u16), 0x00FF_u16);
+        assert_eq!(c.absolute_x(0xFFFF_u16), 0x00FE_u16);
+
+        c.y = 0x00;
+        assert_eq!(c.absolute_y(0x0000_u16), 0x0000_u16);
+        assert_eq!(c.absolute_y(0xFFFF_u16), 0xFFFF_u16);
+        c.y = 0xFF;
+        assert_eq!(c.absolute_y(0x0000_u16), 0x00FF_u16);
+        assert_eq!(c.absolute_y(0xFFFF_u16), 0x00FE_u16);
+
+        assert_eq!(c.zero_page(0x00_u8), 0x0000_u16);
+        assert_eq!(c.zero_page(0xFF_u8), 0x00FF_u16);
+
+        c.x = 0x00;
+        assert_eq!(c.zero_page_x(0x00_u8), 0x0000_u16);
+        assert_eq!(c.zero_page_x(0xFF_u8), 0x00FF_u16);
+        c.x = 0xFF;
+        assert_eq!(c.zero_page_x(0x00_u8), 0x00FF_u16);
+        // this is an interesting case: zero page addressing with index
+        // specifies (according to MOS datasheet) essentially that
+        // the index is added to the argument before it is extended to
+        // 16 bits, so any carry from that addition is dropped
+        assert_eq!(c.zero_page_x(0xFF_u8), 0x00FE_u16);
+
+        c.y = 0x00;
+        assert_eq!(c.zero_page_y(0x00_u8), 0x0000_u16);
+        assert_eq!(c.zero_page_y(0xFF_u8), 0x00FF_u16);
+        c.y = 0xFF;
+        assert_eq!(c.zero_page_y(0x00_u8), 0x00FF_u16);
+        assert_eq!(c.zero_page_y(0xFF_u8), 0x00FE_u16);
+
+        c.mem[0x0] = 0xA;
+        c.mem[0x1] = 0xB;
+        c.mem[0x2] = 3;
+        c.mem[0xFE] = 1;
+        c.mem[0xFF] = 2;
+        c.mem[0x100] = 4;
+        c.mem[0x1FF] = 5;
+        c.mem[0x200] = 6;
+
+        assert_eq!(c.indirect(0x0000_u16), 0x0B0A_u16);
+        assert_eq!(c.indirect(0x00FE_u16), 0x0201_u16);
+
+        // wrap around
+        assert_eq!(c.indirect(0x00FF_u16), 0x0A02_u16);
+        // wrap around
+        assert_eq!(c.indirect(0x01FF_u16), 0x0405_u16);
+
+        c.x = 0x00;
+        assert_eq!(c.indirect_x(0x00_u8), 0x0B0A_u16);
+        assert_eq!(c.indirect_x(0xFE_u8), 0x0201_u16);
+        c.x = 0xFE;
+        // wrap around
+        assert_eq!(c.indirect_x(0x02_u8), 0x0B0A_u16);
+        assert_eq!(c.indirect_x(0x00_u8), 0x0201_u16);
+
+        // wrap around
+        assert_eq!(c.indirect_x(0x01_u8), 0x0A02_u16);
+
+        c.y = 0x00;
+        assert_eq!(c.indirect_y(0x00_u8), 0x0B0A_u16);
+        // wrap around
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0A02_u16);
+
+        // All kinds of wrap around that I'm still confused about
+        c.y = 0x01;
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0A03_u16);
+
+        c.y = 0xFE;
+        assert_eq!(c.indirect_y(0xFF_u8), 0x0B00_u16);
+    }
+}

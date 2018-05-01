@@ -1,8 +1,6 @@
-
 #[cfg(test)]
 mod tests;
 mod instructions;
-// use super::cartridge::Cartridge;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
@@ -101,7 +99,7 @@ impl CPU {
 
     pub fn step (&mut self) {
         let op = self.pc_getb();
-        instructions::INSTR[op as usize](self);
+        self.exec_op(op);
     }
 
     fn pc_getdb(&mut self) -> u16  {
