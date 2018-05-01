@@ -1,7 +1,7 @@
 
 #[cfg(test)]
 mod tests;
-mod decode;
+mod instructions;
 // use super::cartridge::Cartridge;
 
 const RAM_FIRST : usize = 0x0000;
@@ -96,22 +96,12 @@ impl IndexMut<usize> for CPUMem {
     }
 }
 
-// describes the possible types of arguments for instructions
-enum InstrArg {
-    Implied,
-    Immediate(u8),
-    Address(u16),
-}
-
-macro_rules! bad_instr {
-    () => { panic!("illegal instruction") };
-}
 
 impl CPU {
 
     pub fn step (&mut self) {
         let op = self.pc_getb();
-        decode::INSTR[op as usize](self);
+        instructions::INSTR[op as usize](self);
     }
 
     fn pc_getdb(&mut self) -> u16  {
@@ -132,115 +122,6 @@ impl CPU {
 
     fn set_n(&mut self, result : u8) {
         self.flags.n = result & 0x80 != 0;
-    }
-
-    fn adc(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.flags.c = (val as u16) + (self.a as u16) > 0xFF;
-
-        // xnor bit 7 of both nums (check if both nums have the same sign)
-        let same_sign = !((val >> 7) ^ (self.a >> 7));
-        let result = val.wrapping_add(self.a);
-        // xor same_sign with bit 7 of result (check if result has same sign as )
-        self.flags.v = val >> 7 & (same_sign ^ (result >> 7)) != 0;
-    }
-
-    fn eor(&mut self, arg : InstrArg) {
-        let val = self.a ^ match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.a = val;
-    }
-
-
-    fn and(&mut self, arg : InstrArg) {
-        let val = self.a & match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.a = val;
-    }
-
-    fn ora(&mut self, arg : InstrArg) {
-        let val = self.a | match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.a = val;
-    }
-
-    fn ldy(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.y = val;
-    }
-
-    fn ldx(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.x = val;
-    }
-
-    fn lda(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => bad_instr!(),
-        };
-        self.set_z(val);
-        self.set_n(val);
-
-        self.a = val;
-    }
-
-    fn sta(&mut self, arg : InstrArg) {
-        match arg {
-            InstrArg::Address(addr) => self.mem[addr as usize] = self.a,
-            _                       => bad_instr!(),
-        }
-    }
-
-    fn stx(&mut self, arg : InstrArg) {
-        match arg {
-            InstrArg::Address(addr) => self.mem[addr as usize] = self.x,
-            _                       => bad_instr!(),
-        }
-    }
-
-    fn sty(&mut self, arg : InstrArg) {
-        match arg {
-            InstrArg::Address(addr) => self.mem[addr as usize] = self.y,
-            _                       => bad_instr!(),
-        }
     }
 
     pub fn new() -> CPU {
