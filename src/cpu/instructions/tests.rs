@@ -1,5 +1,42 @@
 use super::InstrArg;
 use super::CPU;
+
+#[test]
+fn dec() {
+    let mut c = CPU::new();
+    c.mem[0x00FF] = 0x1;
+    c.dec(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+
+    c.dec(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn cmp() {
+    let mut c = CPU::new();
+    c.a = 5;
+    // self.a == arg
+    c.cmp(InstrArg::Immediate(5));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a > arg
+    c.cmp(InstrArg::Immediate(4));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a < arg
+    c.cmp(InstrArg::Immediate(6));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.c, false);
+}
+
 #[test]
 fn sbc() {
     let mut c = CPU::new();

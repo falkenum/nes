@@ -93,9 +93,6 @@ macro_rules! instr {
         };
 }
 
-// refer to this page to see what each opcode does
-// http://www.6502.org/tutorials/6502opcodes.html
-
 const NUM_OPCODES : usize = 256;
 pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x00 */ unimpl!(),
@@ -291,35 +288,35 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0xBE */ instr!(absolute_y, ldx),
     /* 0xBF */ unimpl!(),
     /* 0xC0 */ unimpl!(),
-    /* 0xC1 */ unimpl!(),
+    /* 0xC1 */ instr!(indirect_x, cmp),
     /* 0xC2 */ unimpl!(),
     /* 0xC3 */ unimpl!(),
     /* 0xC4 */ unimpl!(),
-    /* 0xC5 */ unimpl!(),
+    /* 0xC5 */ instr!(zero_page, cmp),
     /* 0xC6 */ unimpl!(),
     /* 0xC7 */ unimpl!(),
     /* 0xC8 */ unimpl!(),
-    /* 0xC9 */ unimpl!(),
+    /* 0xC9 */ instr!(immediate, cmp),
     /* 0xCA */ unimpl!(),
     /* 0xCB */ unimpl!(),
     /* 0xCC */ unimpl!(),
-    /* 0xCD */ unimpl!(),
+    /* 0xCD */ instr!(absolute, cmp),
     /* 0xCE */ unimpl!(),
     /* 0xCF */ unimpl!(),
     /* 0xD0 */ unimpl!(),
-    /* 0xD1 */ unimpl!(),
+    /* 0xD1 */ instr!(indirect_y, cmp),
     /* 0xD2 */ unimpl!(),
     /* 0xD3 */ unimpl!(),
     /* 0xD4 */ unimpl!(),
-    /* 0xD5 */ unimpl!(),
+    /* 0xD5 */ instr!(zero_page_x, cmp),
     /* 0xD6 */ unimpl!(),
     /* 0xD7 */ unimpl!(),
     /* 0xD8 */ unimpl!(),
-    /* 0xD9 */ unimpl!(),
+    /* 0xD9 */ instr!(absolute_y, cmp),
     /* 0xDA */ unimpl!(),
     /* 0xDB */ unimpl!(),
     /* 0xDC */ unimpl!(),
-    /* 0xDD */ unimpl!(),
+    /* 0xDD */ instr!(absolute_x, cmp),
     /* 0xDE */ unimpl!(),
     /* 0xDF */ unimpl!(),
     /* 0xE0 */ unimpl!(),

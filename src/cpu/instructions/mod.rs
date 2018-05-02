@@ -1,9 +1,7 @@
 use super::CPU;
 #[cfg(test)]
 mod tests;
-mod decode;
-
-
+pub mod decode;
 
 fn from_bcd(x : u8) -> u8 { (x & 0x0F) + ((x & 0xF0) >> 4) * 10 }
 fn to_bcd(x : u8) -> u8 { ((x / 10) << 4) + (x % 10) }
@@ -16,16 +14,62 @@ enum InstrArg {
 }
 
 impl CPU {
-    pub fn exec_op(&mut self, op : u8) {
-        decode::INSTR[op as usize](self);
-    }
-
-    fn sbc(&mut self, arg : InstrArg) {
-        let val = match arg {
+    fn unwrap_argtype_one(&self, arg : InstrArg) -> u8 {
+        match arg {
             InstrArg::Immediate(imm) => imm,
             InstrArg::Address(addr)  => self.mem[addr as usize],
             _                        => panic!("illegal instruction"),
+        }
+    }
+
+    fn unwrap_addr_ref(&mut self, arg : InstrArg) -> &mut u8 {
+        match arg {
+            InstrArg::Address(addr) => &mut self.mem[addr as usize],
+            _                       => panic!("illegal instruction"),
+        }
+    }
+
+    fn set_compare_flags(&mut self, reg : u8, val : u8) {
+        let result = reg.wrapping_sub(val);
+        self.set_n(result);
+        self.set_z(result);
+        self.flags.c = val <= reg;
+    }
+
+    fn dec(&mut self, arg : InstrArg) {
+        let mem_val = {
+            let mem_ref : &mut u8 = self.unwrap_addr_ref(arg);
+            *mem_ref = mem_ref.wrapping_sub(1);
+            *mem_ref
         };
+
+        self.set_n(mem_val);
+        self.set_z(mem_val);
+    }
+
+    fn cpy(&mut self, arg : InstrArg) {
+        let val = self.unwrap_argtype_one(arg);
+
+        let y = self.y;
+        self.set_compare_flags(y, val);
+    }
+
+    fn cpx(&mut self, arg : InstrArg) {
+        let val = self.unwrap_argtype_one(arg);
+
+        let x = self.x;
+        self.set_compare_flags(x, val);
+    }
+
+    fn cmp(&mut self, arg : InstrArg) {
+        let val = self.unwrap_argtype_one(arg);
+
+        let a = self.a;
+        self.set_compare_flags(a, val);
+    }
+
+    fn sbc(&mut self, arg : InstrArg) {
+        let val = self.unwrap_argtype_one(arg);
 
         let result = if self.flags.d {
             let a_bcd = from_bcd(self.a);
@@ -56,11 +100,7 @@ impl CPU {
     // assuming I don't need to worry about handling invalid BCD the same way
     // that the 6502 does
     fn adc(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.unwrap_argtype_one(arg);
 
         // handle the addition differently in bcd mode
         let result = if self.flags.d {
@@ -91,75 +131,51 @@ impl CPU {
     }
 
     fn eor(&mut self, arg : InstrArg) {
-        let val = self.a ^ match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.a ^ self.unwrap_argtype_one(arg);
+
         self.set_z(val);
         self.set_n(val);
-
         self.a = val;
     }
 
 
     fn and(&mut self, arg : InstrArg) {
-        let val = self.a & match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.a & self.unwrap_argtype_one(arg);
+
         self.set_z(val);
         self.set_n(val);
-
         self.a = val;
     }
 
     fn ora(&mut self, arg : InstrArg) {
-        let val = self.a | match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.a | self.unwrap_argtype_one(arg);
+
         self.set_z(val);
         self.set_n(val);
-
         self.a = val;
     }
 
     fn ldy(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.unwrap_argtype_one(arg);
+
         self.set_z(val);
         self.set_n(val);
-
         self.y = val;
     }
 
     fn ldx(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.unwrap_argtype_one(arg);
+;
         self.set_z(val);
         self.set_n(val);
-
         self.x = val;
     }
 
     fn lda(&mut self, arg : InstrArg) {
-        let val = match arg {
-            InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
-            _                        => panic!("illegal instruction"),
-        };
+        let val = self.unwrap_argtype_one(arg);
+
         self.set_z(val);
         self.set_n(val);
-
         self.a = val;
     }
 

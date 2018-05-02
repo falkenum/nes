@@ -102,6 +102,10 @@ impl CPU {
         self.exec_op(op);
     }
 
+    fn exec_op(&mut self, op : u8) {
+        instructions::decode::INSTR[op as usize](self);
+    }
+
     fn pc_getdb(&mut self) -> u16  {
         let ret = self.mem[self.pc as usize] as u16 +
             ((self.mem[(self.pc + 1) as usize] as u16) << 8);
