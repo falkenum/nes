@@ -2,6 +2,165 @@ use super::InstrArg;
 use super::CPU;
 
 #[test]
+fn rol() {
+    let mut c = CPU::new();
+    c.a = 0x80;
+    c.rol(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.rol(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+
+    c.mem[0x00FF] = 0x80;
+    c.rol(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.rol(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+}
+
+#[test]
+fn ror() {
+    let mut c = CPU::new();
+    c.a = 0x01;
+    c.ror(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.ror(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.c, false);
+    c.ror(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+
+    c.mem[0x00FF] = 0x01;
+    c.ror(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.ror(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.c, false);
+    c.ror(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+}
+
+#[test]
+fn asl() {
+    let mut c = CPU::new();
+    c.a = 0x01;
+    c.asl(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+    c.a = 0x80;
+    c.asl(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.asl(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+}
+
+#[test]
+fn lsr() {
+    let mut c = CPU::new();
+    c.a = 0x01;
+    c.lsr(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+    c.lsr(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+    c.a = 0x80;
+    c.lsr(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, false);
+}
+
+#[test]
+fn iny() {
+    let mut c = CPU::new();
+    c.y = 0xFE;
+    c.iny(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+
+    c.iny(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+}
+
+#[test]
+fn inx() {
+    let mut c = CPU::new();
+    c.x = 0xFE;
+    c.inx(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+
+    c.inx(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+}
+
+#[test]
+fn inc() {
+    let mut c = CPU::new();
+    c.mem[0x00FF] = 0xFE;
+    c.inc(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+
+    c.inc(InstrArg::Address(0xFF));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+}
+
+#[test]
+fn dey() {
+    let mut c = CPU::new();
+    c.y = 0x1;
+    c.dey(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+
+    c.dey(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn dex() {
+    let mut c = CPU::new();
+    c.x = 0x1;
+    c.dex(InstrArg::Implied);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+
+    c.dex(InstrArg::Implied);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
 fn dec() {
     let mut c = CPU::new();
     c.mem[0x00FF] = 0x1;
@@ -12,6 +171,52 @@ fn dec() {
     c.dec(InstrArg::Address(0xFF));
     assert_eq!(c.flags.z, false);
     assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn cpx() {
+    let mut c = CPU::new();
+    c.x = 5;
+    // self.a == arg
+    c.cpx(InstrArg::Immediate(5));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a > arg
+    c.cpx(InstrArg::Immediate(4));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a < arg
+    c.cpx(InstrArg::Immediate(6));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.c, false);
+}
+
+#[test]
+fn cpy() {
+    let mut c = CPU::new();
+    c.y = 5;
+    // self.a == arg
+    c.cpy(InstrArg::Immediate(5));
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a > arg
+    c.cpy(InstrArg::Immediate(4));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.c, true);
+
+    // self.a < arg
+    c.cpy(InstrArg::Immediate(6));
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.c, false);
 }
 
 #[test]
