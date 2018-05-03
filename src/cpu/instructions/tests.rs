@@ -3,6 +3,114 @@ use super::CPU;
 use ::cpu::CPUFlags;
 
 #[test]
+fn branches() {
+    let mut c = CPU::new();
+
+    c.pc = 0x8000;
+    c.flags.z = false;
+    c.beq(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.z = true;
+    c.beq(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.z = true;
+    c.bne(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.z = false;
+    c.bne(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.c = false;
+    c.bcs(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.c = true;
+    c.bcs(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.c = true;
+    c.bcc(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.c = false;
+    c.bcc(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.v = false;
+    c.bvs(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.v = true;
+    c.bvs(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.v = true;
+    c.bvc(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.v = false;
+    c.bvc(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.n = false;
+    c.bmi(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.n = true;
+    c.bmi(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.flags.n = true;
+    c.bpl(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x8000);
+
+    c.pc = 0x8000;
+    c.flags.n = false;
+    c.bpl(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+}
+
+#[test]
+fn flags() {
+    let mut c = CPU::new();
+    c.sec(InstrArg::Implied);
+    assert_eq!(c.flags.c, true);
+    c.clc(InstrArg::Implied);
+    assert_eq!(c.flags.c, false);
+
+    c.sed(InstrArg::Implied);
+    assert_eq!(c.flags.d, true);
+    c.cld(InstrArg::Implied);
+    assert_eq!(c.flags.d, false);
+
+    c.sei(InstrArg::Implied);
+    assert_eq!(c.flags.i, true);
+    c.cli(InstrArg::Implied);
+    assert_eq!(c.flags.i, false);
+
+    c.flags.v = true;
+    c.clv(InstrArg::Implied);
+    assert_eq!(c.flags.v, false);
+}
+
+#[test]
 fn pla() {
     let mut c = CPU::new();
     c.mem[0x1FF] = 0xFF;

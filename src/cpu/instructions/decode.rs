@@ -3,6 +3,10 @@ use super::CPU;
 
 // addressing modes
 impl CPU {
+    fn relative    (&self, val : u8)  -> u16 {
+        // sign extend val and add to pc
+        ((val as u16) | (0xFF00 * ((val >> 7) as u16))).wrapping_add(self.pc)
+    }
     fn absolute_x  (&self, val : u16) -> u16 { val.wrapping_add(self.x as u16) }
     fn absolute_y  (&self, val : u16) -> u16 { val.wrapping_add(self.y as u16) }
     fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
@@ -84,6 +88,11 @@ macro_rules! read_instr_arg {
     ( $obj:ident, implied  ) => {{
         Implied
     }};
+    ( $obj:ident, relative  ) => {{
+        let n = $obj.pc_getb();
+        let n = $obj.relative(n);
+        Address(n)
+    }};
 }
 
 macro_rules! instr {
@@ -106,7 +115,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x05 */ instr!(zero_page, ora),
     /* 0x06 */ instr!(zero_page, asl),
     /* 0x07 */ unimpl!(),
-    /* 0x08 */ unimpl!(),
+    /* 0x08 */ instr!(implied, php),
     /* 0x09 */ instr!(immediate, ora),
     /* 0x0A */ instr!(implied, asl),
     /* 0x0B */ unimpl!(),
@@ -138,7 +147,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x25 */ instr!(zero_page, and),
     /* 0x26 */ instr!(zero_page, rol),
     /* 0x27 */ unimpl!(),
-    /* 0x28 */ unimpl!(),
+    /* 0x28 */ instr!(implied, plp),
     /* 0x29 */ instr!(immediate, and),
     /* 0x2A */ instr!(implied, rol),
     /* 0x2B */ unimpl!(),
@@ -170,7 +179,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x45 */ unimpl!(),
     /* 0x46 */ instr!(zero_page, lsr),
     /* 0x47 */ unimpl!(),
-    /* 0x48 */ unimpl!(),
+    /* 0x48 */ instr!(implied, pha),
     /* 0x49 */ unimpl!(),
     /* 0x4A */ instr!(implied, lsr),
     /* 0x4B */ unimpl!(),
@@ -202,7 +211,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x65 */ instr!(zero_page, adc),
     /* 0x66 */ instr!(zero_page, ror),
     /* 0x67 */ unimpl!(),
-    /* 0x68 */ unimpl!(),
+    /* 0x68 */ instr!(implied, pla),
     /* 0x69 */ instr!(immediate, adc),
     /* 0x6A */ instr!(implied, ror),
     /* 0x6B */ unimpl!(),
@@ -236,7 +245,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x87 */ unimpl!(),
     /* 0x88 */ instr!(implied, dey),
     /* 0x89 */ unimpl!(),
-    /* 0x8A */ unimpl!(),
+    /* 0x8A */ instr!(implied, txa),
     /* 0x8B */ unimpl!(),
     /* 0x8C */ instr!(absolute, sty),
     /* 0x8D */ instr!(absolute, sta),
@@ -250,9 +259,9 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x95 */ instr!(zero_page_x, sta),
     /* 0x96 */ instr!(zero_page_y, stx),
     /* 0x97 */ unimpl!(),
-    /* 0x98 */ unimpl!(),
+    /* 0x98 */ instr!(implied, tya),
     /* 0x99 */ instr!(absolute_y, sta),
-    /* 0x9A */ unimpl!(),
+    /* 0x9A */ instr!(implied, txs),
     /* 0x9B */ unimpl!(),
     /* 0x9C */ unimpl!(),
     /* 0x9D */ instr!(absolute_x, sta),
@@ -266,9 +275,9 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0xA5 */ instr!(zero_page, lda),
     /* 0xA6 */ instr!(zero_page, ldx),
     /* 0xA7 */ unimpl!(),
-    /* 0xA8 */ unimpl!(),
+    /* 0xA8 */ instr!(implied, tay),
     /* 0xA9 */ instr!(immediate, lda),
-    /* 0xAA */ unimpl!(),
+    /* 0xAA */ instr!(implied, tax),
     /* 0xAB */ unimpl!(),
     /* 0xAC */ instr!(absolute, ldy),
     /* 0xAD */ instr!(absolute, lda),
@@ -284,7 +293,7 @@ pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0xB7 */ unimpl!(),
     /* 0xB8 */ unimpl!(),
     /* 0xB9 */ instr!(absolute_y, lda),
-    /* 0xBA */ unimpl!(),
+    /* 0xBA */ instr!(implied, tsx),
     /* 0xBB */ unimpl!(),
     /* 0xBC */ instr!(absolute_x, ldy),
     /* 0xBD */ instr!(absolute_x, lda),
@@ -437,5 +446,11 @@ mod tests {
 
         c.y = 0xFE;
         assert_eq!(c.indirect_y(0xFF_u8), 0x0B00_u16);
+
+        c.pc = 0x8000;
+        assert_eq!(c.relative(0x50), 0x8050);
+        assert_eq!(c.relative(0xFF), 0x7FFF);
+        c.pc = 0x8080;
+        assert_eq!(c.relative(0x80), 0x8000);
     }
 }

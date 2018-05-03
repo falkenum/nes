@@ -31,6 +31,14 @@ impl CPU {
             _                       => panic!("illegal instruction"),
         }
     }
+
+    fn unwrap_addr(&self, arg : InstrArg) -> u16 {
+        match arg {
+            InstrArg::Address(addr) => addr,
+            _                       => panic!("illegal instruction"),
+        }
+    }
+
     fn unwrap_implied(&self, arg : InstrArg) {
         match arg {
             InstrArg::Implied => (),
@@ -43,6 +51,75 @@ impl CPU {
         self.set_n(result);
         self.set_z(result);
         self.flags.c = val <= reg;
+    }
+
+    fn bpl(&mut self, arg : InstrArg) {
+        if !self.flags.n { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bmi(&mut self, arg : InstrArg) {
+        if self.flags.n { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bvc(&mut self, arg : InstrArg) {
+        if !self.flags.v { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bvs(&mut self, arg : InstrArg) {
+        if self.flags.v { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bcc(&mut self, arg : InstrArg) {
+        if !self.flags.c { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bcs(&mut self, arg : InstrArg) {
+        if self.flags.c { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn bne(&mut self, arg : InstrArg) {
+        if !self.flags.z { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn beq(&mut self, arg : InstrArg) {
+        if self.flags.z { self.pc = self.unwrap_addr(arg) };
+    }
+
+    fn nop(&mut self, _arg : InstrArg) {}
+
+    fn clv(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.v = false;
+    }
+
+    fn sei(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.i = true;
+    }
+
+    fn cli(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.i = false;
+    }
+
+    fn sed(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.d = true;
+    }
+
+    fn cld(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.d = false;
+    }
+
+    fn sec(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.c = true;
+    }
+
+    fn clc(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.flags.c = false;
     }
 
     fn pla(&mut self, arg : InstrArg) {
