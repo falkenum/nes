@@ -1,5 +1,203 @@
 use super::InstrArg;
 use super::CPU;
+use ::cpu::CPUFlags;
+
+#[test]
+fn pla() {
+    let mut c = CPU::new();
+    c.mem[0x1FF] = 0xFF;
+    c.sp -= 1;
+
+    c.pla(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFF);
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.z, false);
+}
+
+#[test]
+fn pha() {
+    let mut c = CPU::new();
+    c.a = 0xFF;
+
+    c.pha(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFE);
+    assert_eq!(c.mem[0x1FF], 0xFF);
+}
+
+#[test]
+fn plp() {
+    let mut c = CPU::new();
+    c.mem[0x1FF] = 0xFF;
+    c.sp -= 1;
+
+    c.flags.b = false;
+    c.plp(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFF);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.b, false);
+    assert_eq!(c.flags.d, true);
+    assert_eq!(c.flags.i, true);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.c, true);
+
+    c.mem[0x1FF] = 0b10110101;
+    c.sp -= 1;
+
+    c.plp(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFF);
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.b, false);
+    assert_eq!(c.flags.d, false);
+    assert_eq!(c.flags.i, true);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.c, true);
+}
+
+#[test]
+fn php() {
+    let mut c = CPU::new();
+    c.flags = CPUFlags {
+        n : true,
+        v : true,
+        b : true,
+        d : true,
+        i : true,
+        z : true,
+        c : true,
+    };
+    c.php(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFE);
+    assert_eq!(c.mem[0x1FF], 0xFF);
+
+    c.flags = CPUFlags {
+        n : false,
+        v : true,
+        b : false,
+        d : true,
+        i : false,
+        z : true,
+        c : false,
+    };
+    c.php(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFD);
+    assert_eq!(c.mem[0x1FE], 0b01101010);
+}
+
+#[test]
+fn txs() {
+    // this shouldn't change flags
+    let mut c = CPU::new();
+    c.x = 0;
+    c.flags.z = false;
+    c.flags.n = true;
+    c.txs(InstrArg::Implied);
+    assert_eq!(c.sp, 0);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn tsx() {
+    let mut c = CPU::new();
+    c.sp = 5;
+    c.tsx(InstrArg::Implied);
+    assert_eq!(c.x, 5);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    c.sp = 0;
+    c.tsx(InstrArg::Implied);
+    assert_eq!(c.x, 0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    c.sp = 0xFF;
+    c.tsx(InstrArg::Implied);
+    assert_eq!(c.x, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn tya() {
+    let mut c = CPU::new();
+    c.y = 5;
+    c.tya(InstrArg::Implied);
+    assert_eq!(c.a, 5);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    c.y = 0;
+    c.tya(InstrArg::Implied);
+    assert_eq!(c.a, 0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    c.y = 0xFF;
+    c.tya(InstrArg::Implied);
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn tay() {
+    let mut c = CPU::new();
+    c.a = 5;
+    c.tay(InstrArg::Implied);
+    assert_eq!(c.y, 5);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    c.a = 0;
+    c.tay(InstrArg::Implied);
+    assert_eq!(c.y, 0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    c.a = 0xFF;
+    c.tay(InstrArg::Implied);
+    assert_eq!(c.y, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn txa() {
+    let mut c = CPU::new();
+    c.x = 5;
+    c.txa(InstrArg::Implied);
+    assert_eq!(c.a, 5);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    c.x = 0;
+    c.txa(InstrArg::Implied);
+    assert_eq!(c.a, 0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    c.x = 0xFF;
+    c.txa(InstrArg::Implied);
+    assert_eq!(c.a, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
+
+#[test]
+fn tax() {
+    let mut c = CPU::new();
+    c.a = 5;
+    c.tax(InstrArg::Implied);
+    assert_eq!(c.x, 5);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, false);
+    c.a = 0;
+    c.tax(InstrArg::Implied);
+    assert_eq!(c.x, 0);
+    assert_eq!(c.flags.z, true);
+    assert_eq!(c.flags.n, false);
+    c.a = 0xFF;
+    c.tax(InstrArg::Implied);
+    assert_eq!(c.x, 0xFF);
+    assert_eq!(c.flags.z, false);
+    assert_eq!(c.flags.n, true);
+}
 
 #[test]
 fn rol() {

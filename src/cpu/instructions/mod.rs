@@ -13,6 +13,9 @@ enum InstrArg {
     Address(u16),
 }
 
+
+const STACK_BEGIN : usize = 0x100;
+
 impl CPU {
     fn unwrap_argtype_one(&self, arg : InstrArg) -> u8 {
         match arg {
@@ -40,6 +43,99 @@ impl CPU {
         self.set_n(result);
         self.set_z(result);
         self.flags.c = val <= reg;
+    }
+
+    fn pla(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.sp += 1;
+        self.a = self.mem[STACK_BEGIN + self.sp as usize];
+
+        let a = self.a;
+        self.set_n(a);
+        self.set_z(a);
+    }
+
+    fn pha(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.mem[STACK_BEGIN + self.sp as usize] = self.a;
+        self.sp -= 1;
+    }
+
+    fn plp(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.sp += 1;
+        let x = self.mem[STACK_BEGIN + self.sp as usize];
+
+        self.flags = super::CPUFlags {
+            n : (x & 0x80 != 0),
+            v : (x & 0x40 != 0),
+            b : self.flags.b   , // b is the only flag that shouldn't be affected
+            d : (x & 0x08 != 0),
+            i : (x & 0x04 != 0),
+            z : (x & 0x02 != 0),
+            c : (x & 0x01 != 0),
+        }
+    }
+
+    fn php(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        let flags = &self.flags;
+        let result : u8 =
+            ((flags.n as u8) << 7) +
+            ((flags.v as u8) << 6) +
+                          (1 << 5) +
+            ((flags.b as u8) << 4) +
+            ((flags.d as u8) << 3) +
+            ((flags.i as u8) << 2) +
+            ((flags.z as u8) << 1) +
+             (flags.c as u8);
+        self.mem[STACK_BEGIN + self.sp as usize] = result;
+        self.sp -= 1;
+    }
+
+    fn txs(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.sp = self.x;
+    }
+
+    fn tsx(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.x = self.sp;
+        let x = self.x;
+        self.set_n(x);
+        self.set_z(x);
+    }
+
+    fn tya(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.a = self.y;
+        let a = self.a;
+        self.set_n(a);
+        self.set_z(a);
+    }
+
+    fn tay(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.y = self.a;
+        let y = self.y;
+        self.set_n(y);
+        self.set_z(y);
+    }
+
+    fn txa(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.a = self.x;
+        let a = self.a;
+        self.set_n(a);
+        self.set_z(a);
+    }
+
+    fn tax(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+        self.x = self.a;
+        let x = self.x;
+        self.set_n(x);
+        self.set_z(x);
     }
 
     fn ror(&mut self, arg : InstrArg) {

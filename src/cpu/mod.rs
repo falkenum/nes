@@ -131,7 +131,7 @@ impl CPU {
             a : 0,
             x : 0,
             y : 0,
-            sp : 0,
+            sp : 0xFF,
             pc : 0x8000,
             flags : CPUFlags {
                 n : false,
