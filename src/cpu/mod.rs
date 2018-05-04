@@ -2,44 +2,14 @@
 mod tests;
 mod instructions;
 
+use cartridge::Cartridge;
+
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
 const RAM_LAST : usize = 0x1FFF;
 const CART_FIRST : usize = 0x4020;
 const CART_LAST : usize = 0xFFFF;
 
-struct Cartridge {
-    rom : [u8; 0x8000],
-    irq_vec : [u8; 2],
-}
-impl Cartridge {
-    fn new() -> Cartridge {
-        Cartridge {
-            rom : [0; 0x8000],
-            irq_vec: [0; 2],
-        }
-    }
-}
-impl Index<usize> for Cartridge {
-    type Output = u8;
-    fn index(&self, index: usize) -> &Self::Output {
-        match index {
-            0xFFFE => &self.irq_vec[0],
-            0xFFFF => &self.irq_vec[1],
-            _      => &self.rom[index - CART_FIRST],
-        }
-    }
-}
-
-impl IndexMut<usize> for Cartridge {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        match index {
-            0xFFFE => &mut self.irq_vec[0],
-            0xFFFF => &mut self.irq_vec[1],
-            _      => &mut self.rom[index - CART_FIRST],
-        }
-    }
-}
 
 struct CPUMem {
     // 0000 - 07FF : ram
@@ -53,7 +23,6 @@ struct CPUMem {
     cart : Cartridge,
 }
 
-
 struct CPUFlags {
     n : bool,
     v : bool,
@@ -62,6 +31,7 @@ struct CPUFlags {
     z : bool,
     c : bool,
 }
+
 impl CPUFlags {
     fn from_byte(val : u8) -> CPUFlags {
         CPUFlags {
@@ -115,11 +85,10 @@ impl IndexMut<usize> for CPUMem {
     }
 }
 
-
 impl CPU {
-
     pub fn step (&mut self) {
         let op = self.pc_getb();
+        println!("executing opcode 0x{:x}", op);
         self.exec_op(op);
     }
 
@@ -164,8 +133,12 @@ impl CPU {
             },
             mem : CPUMem {
                 ram : [0; RAM_SIZE],
-                cart : Cartridge::new(),
+                cart : Cartridge::test(),
             },
         }
+    }
+
+    pub fn load_cartridge(&mut self, new_cart : Cartridge) {
+        self.mem.cart = new_cart;
     }
 }

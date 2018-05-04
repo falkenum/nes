@@ -2,21 +2,22 @@
 pub struct Cartridge {
     prgrom : Vec<u8>,
     chrrom : Vec<u8>,
-    irq_vec : [u8; 2],
 }
+
 impl Cartridge {
     // used for debugging/testing in places where a Cartridge
     // placeholder is needed
-    fn empty() -> Cartridge {
+    pub fn test() -> Cartridge {
+        let mut new_prgrom = Vec::new();
+        new_prgrom.resize(0x8000, 0);
         Cartridge {
-            prgrom : Vec::new(),
+            prgrom : new_prgrom,
             chrrom : Vec::new(),
-            irq_vec : [0; 2],
         }
     }
 
     // https://wiki.nesdev.com/w/index.php/INES
-    fn from_ines_file(filename : String) -> Cartridge {
+    pub fn from_ines_file(filename : String) -> Cartridge {
         use std::fs::File;
         use std::io::prelude::*;
         const HEADER_SIZE : usize = 16;
@@ -55,12 +56,17 @@ impl Cartridge {
 
         // TODO check if there is still more data (invalid file)
 
-        Cartridge { prgrom : new_prgrom, chrrom : new_chrrom, irq_vec : [0; 2] }
+        println!("loaded cartridge");
+        println!("num prgrom banks: {}; total prgrom size: {}",
+            num_prgrom_banks, prgrom_size);
+        println!("num chrrom banks: {}; total chrrom size: {}",
+            num_chrrom_banks, chrrom_size);
+
+        Cartridge { prgrom : new_prgrom, chrrom : new_chrrom }
     }
 }
 
 const ROM_FIRST : usize = 0x8000;
-const ROM_SIZE : usize = 0x8000;
 const ROM_LAST : usize = 0xFFFF;
 
 // TODO right now I'm assuming it's NROM256
@@ -69,8 +75,7 @@ impl Index<usize> for Cartridge {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
         match index {
-            0xFFFE => &self.irq_vec[0],
-            0xFFFF => &self.irq_vec[1],
+            ROM_FIRST...ROM_LAST => &self.prgrom[index - ROM_FIRST],
             _ => panic!("invalid cartridge address"),
         }
     }
@@ -79,8 +84,7 @@ impl Index<usize> for Cartridge {
 impl IndexMut<usize> for Cartridge {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
-            0xFFFE => &mut self.irq_vec[0],
-            0xFFFF => &mut self.irq_vec[1],
+            ROM_FIRST...ROM_LAST => &mut self.prgrom[index - ROM_FIRST],
             _ => panic!("can't modify cartridge rom"),
         }
     }

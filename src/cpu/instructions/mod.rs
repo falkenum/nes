@@ -24,7 +24,7 @@ fn concat_bytes(high : u8, low : u8) -> u16 {
 const STACK_BEGIN : usize = 0x100;
 
 impl CPU {
-    fn unwrap_argtype_one(&self, arg : InstrArg) -> u8 {
+    fn unwrap_imm_ref(&self, arg : InstrArg) -> u8 {
         match arg {
             InstrArg::Immediate(imm) => imm,
             InstrArg::Address(addr)  => self.mem[addr as usize],
@@ -422,28 +422,28 @@ impl CPU {
     }
 
     fn cpy(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         let y = self.y;
         self.set_compare_flags(y, val);
     }
 
     fn cpx(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         let x = self.x;
         self.set_compare_flags(x, val);
     }
 
     fn cmp(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         let a = self.a;
         self.set_compare_flags(a, val);
     }
 
     fn sbc(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         let result = if self.flags.d {
             let a_bcd = from_bcd(self.a);
@@ -474,7 +474,7 @@ impl CPU {
     // assuming I don't need to worry about handling invalid BCD the same way
     // that the 6502 does
     fn adc(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         // handle the addition differently in bcd mode
         let result = if self.flags.d {
@@ -505,7 +505,7 @@ impl CPU {
     }
 
     fn eor(&mut self, arg : InstrArg) {
-        let val = self.a ^ self.unwrap_argtype_one(arg);
+        let val = self.a ^ self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -514,7 +514,7 @@ impl CPU {
 
 
     fn and(&mut self, arg : InstrArg) {
-        let val = self.a & self.unwrap_argtype_one(arg);
+        let val = self.a & self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -522,7 +522,7 @@ impl CPU {
     }
 
     fn ora(&mut self, arg : InstrArg) {
-        let val = self.a | self.unwrap_argtype_one(arg);
+        let val = self.a | self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -530,7 +530,7 @@ impl CPU {
     }
 
     fn ldy(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -538,7 +538,7 @@ impl CPU {
     }
 
     fn ldx(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -546,7 +546,7 @@ impl CPU {
     }
 
     fn lda(&mut self, arg : InstrArg) {
-        let val = self.unwrap_argtype_one(arg);
+        let val = self.unwrap_imm_ref(arg);
 
         self.set_z(val);
         self.set_n(val);
