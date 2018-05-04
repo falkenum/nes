@@ -3,6 +3,115 @@ use super::CPU;
 use ::cpu::CPUFlags;
 
 #[test]
+fn brk_rti() {
+    let mut c = CPU::new();
+    c.mem[0xFFFE] = 0xAB;
+    c.mem[0xFFFF] = 0xCD;
+    c.pc = 0x8001;
+    c.brk(InstrArg::Implied);
+    assert_eq!(c.mem[0x01FF], 0x80);
+    assert_eq!(c.mem[0x01FE], 0x02);
+    assert_eq!(c.mem[0x01FD], 0b00110000);
+    assert_eq!(c.sp, 0xFC);
+    assert_eq!(c.pc, 0xCDAB);
+    assert_eq!(c.flags.i, true);
+
+    c.rti(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFF);
+    assert_eq!(c.pc, 0x8002);
+    assert_eq!(c.flags.i, false);
+}
+
+#[test]
+fn rts() {
+    let mut c = CPU::new();
+    c.sp = 0xFB;
+    c.mem[0x01FF] = 0x07;
+    c.mem[0x01FE] = 0xFE;
+    c.mem[0x01FD] = 0x90;
+    c.mem[0x01FC] = 0x02;
+    c.rts(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFD);
+    assert_eq!(c.pc, 0x9003);
+    c.rts(InstrArg::Implied);
+    assert_eq!(c.sp, 0xFF);
+    assert_eq!(c.pc, 0x07FF);
+}
+
+#[test]
+fn jsr() {
+    let mut c = CPU::new();
+    c.pc = 0x8003;
+    c.jsr(InstrArg::Address(0x7F03));
+    assert_eq!(c.sp, 0xFD);
+    assert_eq!(c.mem[0x01FF], 0x80);
+    assert_eq!(c.mem[0x01FE], 0x02);
+    assert_eq!(c.pc, 0x7F03);
+
+    c.jsr(InstrArg::Address(0xABCD));
+    assert_eq!(c.sp, 0xFB);
+    assert_eq!(c.mem[0x01FF], 0x80);
+    assert_eq!(c.mem[0x01FE], 0x02);
+    assert_eq!(c.mem[0x01FD], 0x7F);
+    assert_eq!(c.mem[0x01FC], 0x02);
+    assert_eq!(c.pc, 0xABCD);
+}
+
+#[test]
+fn bit() {
+    let mut c = CPU::new();
+    c.a = 0x00;
+    c.mem[0x00FF] = 0xFF;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.z, true);
+
+    c.mem[0x00FF] = 0x8F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.z, true);
+
+    c.mem[0x00FF] = 0x4F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.z, true);
+
+    c.mem[0x00FF] = 0x0F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.z, true);
+
+    c.a = 1;
+    c.mem[0x00FF] = 0xFF;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.z, false);
+
+    c.mem[0x00FF] = 0x8F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, true);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.z, false);
+
+    c.mem[0x00FF] = 0x4F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, true);
+    assert_eq!(c.flags.z, false);
+
+    c.mem[0x00FF] = 0x0F;
+    c.bit(InstrArg::Address(0x00FF));
+    assert_eq!(c.flags.n, false);
+    assert_eq!(c.flags.v, false);
+    assert_eq!(c.flags.z, false);
+}
+
+#[test]
 fn branches() {
     let mut c = CPU::new();
 
@@ -85,6 +194,12 @@ fn branches() {
     c.flags.n = false;
     c.bpl(InstrArg::Address(0x80FF));
     assert_eq!(c.pc, 0x80FF);
+
+    c.pc = 0x8000;
+    c.jmp(InstrArg::Address(0x80FF));
+    assert_eq!(c.pc, 0x80FF);
+    c.jmp(InstrArg::Address(0x0));
+    assert_eq!(c.pc, 0x0);
 }
 
 #[test]
@@ -139,12 +254,10 @@ fn plp() {
     c.mem[0x1FF] = 0xFF;
     c.sp -= 1;
 
-    c.flags.b = false;
     c.plp(InstrArg::Implied);
     assert_eq!(c.sp, 0xFF);
     assert_eq!(c.flags.n, true);
     assert_eq!(c.flags.v, true);
-    assert_eq!(c.flags.b, false);
     assert_eq!(c.flags.d, true);
     assert_eq!(c.flags.i, true);
     assert_eq!(c.flags.z, true);
@@ -157,7 +270,6 @@ fn plp() {
     assert_eq!(c.sp, 0xFF);
     assert_eq!(c.flags.n, true);
     assert_eq!(c.flags.v, false);
-    assert_eq!(c.flags.b, false);
     assert_eq!(c.flags.d, false);
     assert_eq!(c.flags.i, true);
     assert_eq!(c.flags.z, false);
@@ -170,7 +282,6 @@ fn php() {
     c.flags = CPUFlags {
         n : true,
         v : true,
-        b : true,
         d : true,
         i : true,
         z : true,
@@ -178,12 +289,11 @@ fn php() {
     };
     c.php(InstrArg::Implied);
     assert_eq!(c.sp, 0xFE);
-    assert_eq!(c.mem[0x1FF], 0xFF);
+    assert_eq!(c.mem[0x1FF], 0b11101111);
 
     c.flags = CPUFlags {
         n : false,
         v : true,
-        b : false,
         d : true,
         i : false,
         z : true,

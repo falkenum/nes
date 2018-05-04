@@ -9,25 +9,35 @@ const CART_FIRST : usize = 0x4020;
 const CART_LAST : usize = 0xFFFF;
 
 struct Cartridge {
-    rom : [u8; 0x8000]
+    rom : [u8; 0x8000],
+    irq_vec : [u8; 2],
 }
 impl Cartridge {
     fn new() -> Cartridge {
         Cartridge {
-            rom : [0; 0x8000]
+            rom : [0; 0x8000],
+            irq_vec: [0; 2],
         }
     }
 }
 impl Index<usize> for Cartridge {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
-        &self.rom[index]
+        match index {
+            0xFFFE => &self.irq_vec[0],
+            0xFFFF => &self.irq_vec[1],
+            _      => &self.rom[index - CART_FIRST],
+        }
     }
 }
 
 impl IndexMut<usize> for Cartridge {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.rom[index]
+        match index {
+            0xFFFE => &mut self.irq_vec[0],
+            0xFFFF => &mut self.irq_vec[1],
+            _      => &mut self.rom[index - CART_FIRST],
+        }
     }
 }
 
@@ -47,11 +57,22 @@ struct CPUMem {
 struct CPUFlags {
     n : bool,
     v : bool,
-    b : bool,
     d : bool,
     i : bool,
     z : bool,
     c : bool,
+}
+impl CPUFlags {
+    fn from_byte(val : u8) -> CPUFlags {
+        CPUFlags {
+            n : (val & 0x80 != 0),
+            v : (val & 0x40 != 0),
+            d : (val & 0x08 != 0),
+            i : (val & 0x04 != 0),
+            z : (val & 0x02 != 0),
+            c : (val & 0x01 != 0),
+        }
+    }
 }
 
 pub struct CPU {
@@ -76,7 +97,7 @@ impl Index<usize> for CPUMem {
     fn index(&self, index: usize) -> &Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &self.cart[index - CART_FIRST],
+            CART_FIRST...CART_LAST => &self.cart[index],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
@@ -87,7 +108,7 @@ impl IndexMut<usize> for CPUMem {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
             RAM_FIRST...RAM_LAST => &mut self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &mut self.cart[index - CART_FIRST],
+            CART_FIRST...CART_LAST => &mut self.cart[index],
             // TODO other types of memory
             _ => panic!("couldn't map the index to CPU memory"),
         }
@@ -136,7 +157,6 @@ impl CPU {
             flags : CPUFlags {
                 n : false,
                 v : false,
-                b : false,
                 d : false,
                 i : false,
                 z : false,

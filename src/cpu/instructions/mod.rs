@@ -13,6 +13,13 @@ enum InstrArg {
     Address(u16),
 }
 
+fn split_bytes(val : u16) -> (u8, u8) {
+    ((val >> 8) as u8, val as u8)
+}
+
+fn concat_bytes(high : u8, low : u8) -> u16 {
+    ((high as u16) << 8) + low as u16
+}
 
 const STACK_BEGIN : usize = 0x100;
 
@@ -32,13 +39,6 @@ impl CPU {
         }
     }
 
-    fn unwrap_addr(&self, arg : InstrArg) -> u16 {
-        match arg {
-            InstrArg::Address(addr) => addr,
-            _                       => panic!("illegal instruction"),
-        }
-    }
-
     fn unwrap_implied(&self, arg : InstrArg) {
         match arg {
             InstrArg::Implied => (),
@@ -53,39 +53,135 @@ impl CPU {
         self.flags.c = val <= reg;
     }
 
+    fn push(&mut self, val : u8) {
+        self.mem[STACK_BEGIN + self.sp as usize] = val;
+        self.sp -= 1;
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.sp += 1;
+        self.mem[STACK_BEGIN + self.sp as usize]
+    }
+
+    fn rti(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+
+        let status = self.pop();
+        self.flags = super::CPUFlags::from_byte(status);
+
+        let ret_low = self.pop();
+        let ret_high = self.pop();
+        self.pc = concat_bytes(ret_high, ret_low);
+    }
+
+    fn brk(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+
+        let (ret_high, ret_low) = split_bytes(self.pc + 1);
+        self.push(ret_high);
+        self.push(ret_low);
+
+        let dest_high = self.mem[0xFFFF];
+        let dest_low = self.mem[0xFFFE];
+        self.pc = concat_bytes(dest_high, dest_low);
+
+        let result : u8 = {
+            let flags = &self.flags;
+                ((flags.n as u8) << 7) +
+                ((flags.v as u8) << 6) +
+                              (1 << 5) + // unused
+                              (1 << 4) + // b flag
+                ((flags.d as u8) << 3) +
+                ((flags.i as u8) << 2) +
+                ((flags.z as u8) << 1) +
+                (flags.c as u8)
+        };
+        self.push(result);
+
+        self.flags.i = true;
+    }
+
+    fn rts(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+
+        let ret_low = self.pop();
+        let ret_high = self.pop();
+        let ret_addr = concat_bytes(ret_high, ret_low) + 1;
+
+        self.pc = ret_addr;
+    }
+
+    fn jsr(&mut self, arg : InstrArg) {
+        let dest = match arg {
+            InstrArg::Address(addr) => addr,
+            _                       => panic!("illegal instruction"),
+        };
+
+        // store pointer to addr of jsr + 2 (addr low of jsr argument).
+        // subtracting 1 because the pc currently points to byte after this
+        // instruction
+        let ret_ptr : u16 = self.pc - 1;
+        let ret_low : u8 = ret_ptr as u8;
+        let ret_high : u8 = (ret_ptr >> 8) as u8;
+        self.push(ret_high);
+        self.push(ret_low);
+
+        self.pc = dest;
+    }
+
+    fn bit(&mut self, arg : InstrArg) {
+        let val = match arg {
+            InstrArg::Address(addr) => self.mem[addr as usize],
+            _                       => panic!("illegal instruction"),
+        };
+
+        self.flags.n = (val & 0x80) != 0;
+        self.flags.v = (val & 0x40) != 0;
+        self.flags.z = (val & self.a) == 0;
+    }
+
+    fn jmp(&mut self, arg : InstrArg) {
+        self.pc = match arg {
+                InstrArg::Address(addr) => addr,
+                _                       => panic!("illegal instruction"),
+        };
+    }
+
     fn bpl(&mut self, arg : InstrArg) {
-        if !self.flags.n { self.pc = self.unwrap_addr(arg) };
+        if !self.flags.n { self.jmp(arg) };
     }
 
     fn bmi(&mut self, arg : InstrArg) {
-        if self.flags.n { self.pc = self.unwrap_addr(arg) };
+        if self.flags.n { self.jmp(arg) };
     }
 
     fn bvc(&mut self, arg : InstrArg) {
-        if !self.flags.v { self.pc = self.unwrap_addr(arg) };
+        if !self.flags.v { self.jmp(arg) };
     }
 
     fn bvs(&mut self, arg : InstrArg) {
-        if self.flags.v { self.pc = self.unwrap_addr(arg) };
+        if self.flags.v { self.jmp(arg) };
     }
 
     fn bcc(&mut self, arg : InstrArg) {
-        if !self.flags.c { self.pc = self.unwrap_addr(arg) };
+        if !self.flags.c { self.jmp(arg) };
     }
 
     fn bcs(&mut self, arg : InstrArg) {
-        if self.flags.c { self.pc = self.unwrap_addr(arg) };
+        if self.flags.c { self.jmp(arg) };
     }
 
     fn bne(&mut self, arg : InstrArg) {
-        if !self.flags.z { self.pc = self.unwrap_addr(arg) };
+        if !self.flags.z { self.jmp(arg) };
     }
 
     fn beq(&mut self, arg : InstrArg) {
-        if self.flags.z { self.pc = self.unwrap_addr(arg) };
+        if self.flags.z { self.jmp(arg) };
     }
 
-    fn nop(&mut self, _arg : InstrArg) {}
+    fn nop(&mut self, arg : InstrArg) {
+        self.unwrap_implied(arg);
+    }
 
     fn clv(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
@@ -124,8 +220,7 @@ impl CPU {
 
     fn pla(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
-        self.sp += 1;
-        self.a = self.mem[STACK_BEGIN + self.sp as usize];
+        self.a = self.pop();
 
         let a = self.a;
         self.set_n(a);
@@ -134,40 +229,31 @@ impl CPU {
 
     fn pha(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
-        self.mem[STACK_BEGIN + self.sp as usize] = self.a;
-        self.sp -= 1;
+        let a = self.a;
+        self.push(a);
     }
 
     fn plp(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
-        self.sp += 1;
-        let x = self.mem[STACK_BEGIN + self.sp as usize];
+        let x = self.pop();
 
-        self.flags = super::CPUFlags {
-            n : (x & 0x80 != 0),
-            v : (x & 0x40 != 0),
-            b : self.flags.b   , // b is the only flag that shouldn't be affected
-            d : (x & 0x08 != 0),
-            i : (x & 0x04 != 0),
-            z : (x & 0x02 != 0),
-            c : (x & 0x01 != 0),
-        }
+        self.flags = super::CPUFlags::from_byte(x);
     }
 
     fn php(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
-        let flags = &self.flags;
-        let result : u8 =
-            ((flags.n as u8) << 7) +
-            ((flags.v as u8) << 6) +
-                          (1 << 5) +
-            ((flags.b as u8) << 4) +
-            ((flags.d as u8) << 3) +
-            ((flags.i as u8) << 2) +
-            ((flags.z as u8) << 1) +
-             (flags.c as u8);
-        self.mem[STACK_BEGIN + self.sp as usize] = result;
-        self.sp -= 1;
+        let result : u8 = {
+                let flags = &self.flags;
+                ((flags.n as u8) << 7) +
+                ((flags.v as u8) << 6) +
+                              (1 << 5) +
+                ((flags.d as u8) << 3) +
+                ((flags.i as u8) << 2) +
+                ((flags.z as u8) << 1) +
+                (flags.c as u8)
+        };
+
+        self.push(result);
     }
 
     fn txs(&mut self, arg : InstrArg) {

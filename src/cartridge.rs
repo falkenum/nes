@@ -2,6 +2,7 @@
 pub struct Cartridge {
     prgrom : Vec<u8>,
     chrrom : Vec<u8>,
+    irq_vec : [u8; 2],
 }
 impl Cartridge {
     // used for debugging/testing in places where a Cartridge
@@ -10,6 +11,7 @@ impl Cartridge {
         Cartridge {
             prgrom : Vec::new(),
             chrrom : Vec::new(),
+            irq_vec : [0; 2],
         }
     }
 
@@ -53,7 +55,7 @@ impl Cartridge {
 
         // TODO check if there is still more data (invalid file)
 
-        Cartridge { prgrom : new_prgrom, chrrom : new_chrrom }
+        Cartridge { prgrom : new_prgrom, chrrom : new_chrrom, irq_vec : [0; 2] }
     }
 }
 
@@ -67,6 +69,8 @@ impl Index<usize> for Cartridge {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
         match index {
+            0xFFFE => &self.irq_vec[0],
+            0xFFFF => &self.irq_vec[1],
             _ => panic!("invalid cartridge address"),
         }
     }
@@ -75,6 +79,8 @@ impl Index<usize> for Cartridge {
 impl IndexMut<usize> for Cartridge {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         match index {
+            0xFFFE => &mut self.irq_vec[0],
+            0xFFFF => &mut self.irq_vec[1],
             _ => panic!("can't modify cartridge rom"),
         }
     }
