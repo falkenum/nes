@@ -179,9 +179,7 @@ impl CPU {
         if self.flags.z { self.jmp(arg) };
     }
 
-    fn nop(&mut self, arg : InstrArg) {
-        self.unwrap_implied(arg);
-    }
+    fn nop(&mut self, _arg : InstrArg) {}
 
     fn clv(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);

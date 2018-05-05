@@ -35,8 +35,10 @@ impl Cartridge {
 
         let num_prgrom_banks = header[4];
         let num_chrrom_banks = header[5];
-        let _flags6          = header[6];
-        let _flags7          = header[7];
+        let flags6          = header[6];
+        println!("flags 6: {:08b}", flags6);
+        let flags7          = header[7];
+        println!("flags 7: {:08b}", flags7);
 
         let prgrom_size = PRGROM_BANK_SIZE * num_prgrom_banks as usize;
         let chrrom_size = CHRROM_BANK_SIZE * num_chrrom_banks as usize;
@@ -75,7 +77,8 @@ impl Index<usize> for Cartridge {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
         match index {
-            ROM_FIRST...ROM_LAST => &self.prgrom[index - ROM_FIRST],
+            ROM_FIRST...0xBFFF => &self.prgrom[index - ROM_FIRST],
+            0xC000...ROM_LAST => &self.prgrom[index - 0xC000],
             _ => panic!("invalid cartridge address"),
         }
     }

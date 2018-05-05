@@ -2,16 +2,13 @@ extern crate nes;
 use nes::cartridge::Cartridge;
 use nes::cpu::CPU;
 
-/// document main
 fn main() {
     // let c = Cartridge::from_ines_file(String::from("roms/mario.nes"));
     let mut c = CPU::new();
-    c.load_cartridge(Cartridge::from_ines_file(String::from("roms/mario.nes")));
+    c.load_cartridge(Cartridge::from_ines_file(String::from("nestest.nes")));
 
-    c.step();
-    c.step();
-    c.step();
-    c.step();
-    c.step();
-    c.step();
+    while c.get_pc() != 0 {
+        c.step();
+    }
+    println!("{:?}", c);
 }

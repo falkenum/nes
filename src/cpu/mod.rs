@@ -43,6 +43,16 @@ impl CPUFlags {
             c : (val & 0x01 != 0),
         }
     }
+    fn to_byte(&self) -> u8 {
+        ((self.n as u8) << 7) +
+        ((self.v as u8) << 6) +
+                     (1 << 5) + // unused
+                     (0 << 4) + // b flag
+        ((self.d as u8) << 3) +
+        ((self.i as u8) << 2) +
+        ((self.z as u8) << 1) +
+         (self.c as u8)
+    }
 }
 
 pub struct CPU {
@@ -54,12 +64,19 @@ pub struct CPU {
     flags : CPUFlags,
     mem : CPUMem,
 }
-// use std::fmt;
-// impl fmt::Debug for CPU {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "CPU reg a: {}", self.a)
-//     }
-// }
+use std::fmt;
+impl fmt::Debug for CPU {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "reg a: 0x{:02X}\
+                 \nreg x: 0x{:02X}\
+                 \nreg y: 0x{:02X}\
+                 \n   sp: 0x{:02X}\
+                 \n   pc: 0x{:04X}\
+                 \nflags: nv_bdizc\
+                 \n------ {:08b}",
+               self.a, self.x, self.y, self.sp, self.pc, self.flags.to_byte())
+    }
+}
 
 use std::ops::{ Index, IndexMut };
 impl Index<usize> for CPUMem {
@@ -88,9 +105,10 @@ impl IndexMut<usize> for CPUMem {
 impl CPU {
     pub fn step (&mut self) {
         let op = self.pc_getb();
-        println!("executing opcode 0x{:x}", op);
+        println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
         self.exec_op(op);
     }
+    pub fn get_pc (&self) -> u16 { self.pc }
 
     fn exec_op(&mut self, op : u8) {
         instructions::decode::INSTR[op as usize](self);
