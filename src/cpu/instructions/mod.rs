@@ -7,6 +7,7 @@ fn from_bcd(x : u8) -> u8 { (x & 0x0F) + ((x & 0xF0) >> 4) * 10 }
 fn to_bcd(x : u8) -> u8 { ((x / 10) << 4) + (x % 10) }
 
 // describes the possible types of arguments for instructions
+#[derive(Clone, Copy)]
 enum InstrArg {
     Implied,
     Immediate(u8),
@@ -73,6 +74,13 @@ impl CPU {
         let ret_high = self.pop();
         self.pc = concat_bytes(ret_high, ret_low);
     }
+
+    // unofficial opcodes
+    fn lax(&mut self, arg : InstrArg) {
+        self.lda(arg);
+        self.ldx(arg);
+    }
+    // end unofficial
 
     fn brk(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
