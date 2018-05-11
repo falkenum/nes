@@ -77,8 +77,7 @@ impl Index<usize> for Cartridge {
     type Output = u8;
     fn index(&self, index: usize) -> &Self::Output {
         match index {
-            ROM_FIRST...0xBFFF => &self.prgrom[index - ROM_FIRST],
-            0xC000...ROM_LAST => &self.prgrom[index - 0xC000],
+            ROM_FIRST...ROM_LAST => &self.prgrom[index - ROM_FIRST],
             _ => panic!("invalid cartridge address"),
         }
     }
