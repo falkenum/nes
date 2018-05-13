@@ -68,25 +68,20 @@ impl Cartridge {
     }
 }
 
-const ROM_FIRST : usize = 0x8000;
-const ROM_LAST : usize = 0xFFFF;
+const ROM_FIRST : u16 = 0x8000;
+const ROM_LAST : u16 = 0xFFFF;
 
 // TODO right now I'm assuming it's NROM256
-use std::ops::{ Index, IndexMut };
-impl Index<usize> for Cartridge {
-    type Output = u8;
-    fn index(&self, index: usize) -> &Self::Output {
-        match index {
-            ROM_FIRST...ROM_LAST => &self.prgrom[index - ROM_FIRST],
+impl ::Memory for Cartridge {
+    fn loadb(&self, addr : u16) -> u8 {
+        match addr {
+            ROM_FIRST...ROM_LAST => self.prgrom[(addr - ROM_FIRST) as usize],
             _ => panic!("invalid cartridge address"),
         }
     }
-}
-
-impl IndexMut<usize> for Cartridge {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        match index {
-            ROM_FIRST...ROM_LAST => &mut self.prgrom[index - ROM_FIRST],
+    fn storeb(&mut self, addr : u16, val : u8) {
+        match addr {
+            ROM_FIRST...ROM_LAST => self.prgrom[(addr - ROM_FIRST) as usize] = val,
             _ => panic!("can't modify cartridge rom"),
         }
     }

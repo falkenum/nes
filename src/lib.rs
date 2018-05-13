@@ -11,11 +11,11 @@ mod ppu {
 
     pub struct PPU {
         vram : [u8; 100],
-        cart : Rc<Cartridge>,
+        cart : Rc<RefCell<Cartridge>>,
     }
 
     impl PPU {
-        pub fn new(_cart : Rc<Cartridge>) -> PPU {
+        pub fn new(_cart : Rc<RefCell<Cartridge>>) -> PPU {
             PPU {
                 vram : [255; 100],
                 cart : _cart,
@@ -54,7 +54,7 @@ pub struct NES {
 impl NES {
 
     pub fn new(cart : Cartridge) -> NES {
-        let x = Rc::new(cart);
+        let x = Rc::new(RefCell::new(cart));
         NES {
             cpu : CPU::new(Rc::clone(&x)),
             ppu : PPU::new(Rc::clone(&x)),
@@ -77,4 +77,5 @@ impl NES {
 
 trait Memory {
     fn storeb(&mut self, addr : u16, val : u8);
+    fn loadb(&self, addr : u16) -> u8;
 }

@@ -1,4 +1,4 @@
-use super::CPU;
+use super::{ CPU, Memory };
 #[cfg(test)]
 mod tests;
 pub mod decode;
@@ -22,20 +22,20 @@ fn concat_bytes(high : u8, low : u8) -> u16 {
     ((high as u16) << 8) + low as u16
 }
 
-const STACK_BEGIN : usize = 0x100;
+const STACK_BEGIN : u16 = 0x100;
 
 impl CPU {
-    fn unwrap_imm_ref(&self, arg : InstrArg) -> u8 {
+    fn unwrap_imm_or_memval(&self, arg : InstrArg) -> u8 {
         match arg {
             InstrArg::Immediate(imm) => imm,
-            InstrArg::Address(addr)  => self.mem[addr as usize],
+            InstrArg::Address(addr)  => self.mem.loadb(addr),
             _                        => panic!("illegal instruction"),
         }
     }
 
-    fn unwrap_addr_ref(&mut self, arg : InstrArg) -> &mut u8 {
+    fn unwrap_addr(&self, arg : InstrArg) -> u16 {
         match arg {
-            InstrArg::Address(addr) => &mut self.mem[addr as usize],
+            InstrArg::Address(addr) => addr,
             _                       => panic!("illegal instruction"),
         }
     }
@@ -55,13 +55,13 @@ impl CPU {
     }
 
     fn push(&mut self, val : u8) {
-        self.mem[STACK_BEGIN + self.sp as usize] = val;
+        self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
         self.sp -= 1;
     }
 
     fn pop(&mut self) -> u8 {
         self.sp += 1;
-        self.mem[STACK_BEGIN + self.sp as usize]
+        self.mem.loadb(STACK_BEGIN + self.sp as u16)
     }
 
     fn rti(&mut self, arg : InstrArg) {
@@ -89,8 +89,8 @@ impl CPU {
         self.push(ret_high);
         self.push(ret_low);
 
-        let dest_high = self.mem[0xFFFF];
-        let dest_low = self.mem[0xFFFE];
+        let dest_high = self.mem.loadb(0xFFFF);
+        let dest_low = self.mem.loadb(0xFFFE);
         self.pc = concat_bytes(dest_high, dest_low);
 
         let result : u8 = {
@@ -139,7 +139,7 @@ impl CPU {
 
     fn bit(&mut self, arg : InstrArg) {
         let val = match arg {
-            InstrArg::Address(addr) => self.mem[addr as usize],
+            InstrArg::Address(addr) => self.mem.loadb(addr),
             _                       => panic!("illegal instruction"),
         };
 
@@ -309,15 +309,23 @@ impl CPU {
 
     fn ror(&mut self, arg : InstrArg) {
         let result = {
-            let target_ref = match arg {
-                InstrArg::Implied        => &mut self.a,
-                InstrArg::Address(addr)  => &mut self.mem[addr as usize],
-                _                        => panic!("illegal instruction"),
-            };
             let c = self.flags.c as u8;
-            self.flags.c = *target_ref & 0x1 != 0;
-            *target_ref = (*target_ref >> 1) + (c << 7);
-            *target_ref
+            match arg {
+                InstrArg::Implied        => {
+                    self.flags.c = self.a & 0x1 != 0;
+                    self.a = (self.a >> 1) + (c << 7);
+                    self.a
+                },
+                InstrArg::Address(addr)  => {
+                    let mut target_val = self.mem.loadb(addr);
+                    self.flags.c = target_val & 0x1 != 0;
+                    target_val = (target_val >> 1) + (c << 7);
+                    self.mem.storeb(addr, target_val);
+                    target_val
+                },
+
+                _                        => panic!("illegal instruction"),
+            }
         };
         self.set_n(result);
         self.set_z(result);
@@ -325,15 +333,23 @@ impl CPU {
 
     fn rol(&mut self, arg : InstrArg) {
         let result = {
-            let target_ref = match arg {
-                InstrArg::Implied        => &mut self.a,
-                InstrArg::Address(addr)  => &mut self.mem[addr as usize],
-                _                        => panic!("illegal instruction"),
-            };
             let c = self.flags.c as u8;
-            self.flags.c = *target_ref & 0x80 != 0;
-            *target_ref = (*target_ref << 1) + c;
-            *target_ref
+            match arg {
+                InstrArg::Implied        => {
+                    self.flags.c = self.a & 0x80 != 0;
+                    self.a = (self.a << 1) + c;
+                    self.a
+                },
+                InstrArg::Address(addr)  => {
+                    let mut target_val = self.mem.loadb(addr);
+                    self.flags.c = target_val & 0x80 != 0;
+                    target_val = (target_val << 1) + c;
+                    self.mem.storeb(addr, target_val);
+                    target_val
+                },
+
+                _                        => panic!("illegal instruction"),
+            }
         };
         self.set_n(result);
         self.set_z(result);
@@ -341,14 +357,22 @@ impl CPU {
 
     fn asl(&mut self, arg : InstrArg) {
         let result = {
-            let target_ref = match arg {
-                InstrArg::Implied        => &mut self.a,
-                InstrArg::Address(addr)  => &mut self.mem[addr as usize],
+            match arg {
+                InstrArg::Implied        => {
+                    self.flags.c = self.a & 0x80 != 0;
+                    self.a = self.a << 1;
+                    self.a
+                },
+                InstrArg::Address(addr)  => {
+                    let mut target_val = self.mem.loadb(addr);
+                    self.flags.c = target_val & 0x80 != 0;
+                    target_val = target_val << 1;
+                    self.mem.storeb(addr, target_val);
+                    target_val
+                },
+
                 _                        => panic!("illegal instruction"),
-            };
-            self.flags.c = *target_ref & 0x80 != 0;
-            *target_ref = *target_ref << 1;
-            *target_ref
+            }
         };
         self.set_n(result);
         self.set_z(result);
@@ -356,14 +380,22 @@ impl CPU {
 
     fn lsr(&mut self, arg : InstrArg) {
         let result = {
-            let target_ref = match arg {
-                InstrArg::Implied        => &mut self.a,
-                InstrArg::Address(addr)  => &mut self.mem[addr as usize],
+            match arg {
+                InstrArg::Implied        => {
+                    self.flags.c = self.a & 0x1 != 0;
+                    self.a = self.a >> 1;
+                    self.a
+                },
+                InstrArg::Address(addr)  => {
+                    let mut target_val = self.mem.loadb(addr);
+                    self.flags.c = target_val & 0x1 != 0;
+                    target_val = target_val >> 1;
+                    self.mem.storeb(addr, target_val);
+                    target_val
+                },
+
                 _                        => panic!("illegal instruction"),
-            };
-            self.flags.c = *target_ref & 0x1 != 0;
-            *target_ref = *target_ref >> 1;
-            *target_ref
+            }
         };
         self.flags.n = false;
         self.set_z(result);
@@ -388,11 +420,10 @@ impl CPU {
     }
 
     fn inc(&mut self, arg : InstrArg) {
-        let mem_val = {
-            let mem_ref : &mut u8 = self.unwrap_addr_ref(arg);
-            *mem_ref = mem_ref.wrapping_add(1);
-            *mem_ref
-        };
+        let addr = self.unwrap_addr(arg);
+        let mut mem_val = self.mem.loadb(addr);
+        mem_val = mem_val.wrapping_add(1);
+        self.mem.storeb(addr, mem_val);
 
         self.set_n(mem_val);
         self.set_z(mem_val);
@@ -417,39 +448,38 @@ impl CPU {
     }
 
     fn dec(&mut self, arg : InstrArg) {
-        let mem_val = {
-            let mem_ref : &mut u8 = self.unwrap_addr_ref(arg);
-            *mem_ref = mem_ref.wrapping_sub(1);
-            *mem_ref
-        };
+        let addr = self.unwrap_addr(arg);
+        let mut mem_val = self.mem.loadb(addr);
+        mem_val = mem_val.wrapping_sub(1);
+        self.mem.storeb(addr, mem_val);
 
         self.set_n(mem_val);
         self.set_z(mem_val);
     }
 
     fn cpy(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         let y = self.y;
         self.set_compare_flags(y, val);
     }
 
     fn cpx(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         let x = self.x;
         self.set_compare_flags(x, val);
     }
 
     fn cmp(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         let a = self.a;
         self.set_compare_flags(a, val);
     }
 
     fn sbc(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         let result = if self.flags.d {
             let a_bcd = from_bcd(self.a);
@@ -480,7 +510,7 @@ impl CPU {
     // assuming I don't need to worry about handling invalid BCD the same way
     // that the 6502 does
     fn adc(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         // handle the addition differently in bcd mode
         let result = if self.flags.d {
@@ -511,7 +541,7 @@ impl CPU {
     }
 
     fn eor(&mut self, arg : InstrArg) {
-        let val = self.a ^ self.unwrap_imm_ref(arg);
+        let val = self.a ^ self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -520,7 +550,7 @@ impl CPU {
 
 
     fn and(&mut self, arg : InstrArg) {
-        let val = self.a & self.unwrap_imm_ref(arg);
+        let val = self.a & self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -528,7 +558,7 @@ impl CPU {
     }
 
     fn ora(&mut self, arg : InstrArg) {
-        let val = self.a | self.unwrap_imm_ref(arg);
+        let val = self.a | self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -536,7 +566,7 @@ impl CPU {
     }
 
     fn ldy(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -544,7 +574,7 @@ impl CPU {
     }
 
     fn ldx(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -552,7 +582,7 @@ impl CPU {
     }
 
     fn lda(&mut self, arg : InstrArg) {
-        let val = self.unwrap_imm_ref(arg);
+        let val = self.unwrap_imm_or_memval(arg);
 
         self.set_z(val);
         self.set_n(val);
@@ -560,14 +590,17 @@ impl CPU {
     }
 
     fn sta(&mut self, arg : InstrArg) {
-        *self.unwrap_addr_ref(arg) = self.a;
+        let addr = self.unwrap_addr(arg);
+        self.mem.storeb(addr, self.a);
     }
 
     fn stx(&mut self, arg : InstrArg) {
-        *self.unwrap_addr_ref(arg) = self.x;
+        let addr = self.unwrap_addr(arg);
+        self.mem.storeb(addr, self.x);
     }
 
     fn sty(&mut self, arg : InstrArg) {
-        *self.unwrap_addr_ref(arg) = self.y;
+        let addr = self.unwrap_addr(arg);
+        self.mem.storeb(addr, self.y);
     }
 }

@@ -5,12 +5,13 @@ mod instructions;
 use cartridge::Cartridge;
 use std::cell::RefCell;
 use std::rc::Rc;
+use Memory;
 
-const RAM_FIRST : usize = 0x0000;
-const RAM_SIZE : usize = 0x0800;
-const RAM_LAST : usize = 0x1FFF;
-const CART_FIRST : usize = 0x4020;
-const CART_LAST : usize = 0xFFFF;
+const RAM_FIRST : u16 = 0x0000;
+const RAM_SIZE : u16 = 0x0800;
+const RAM_LAST : u16 = 0x1FFF;
+const CART_FIRST : u16 = 0x4020;
+const CART_LAST : u16 = 0xFFFF;
 
 
 struct CPUMem {
@@ -21,8 +22,8 @@ struct CPUMem {
     // 4000 - 4017 : APU and IO regs
     // 4018 - 401F : test mode stuff
     // 4020 - FFFF : cartridge
-    ram : [u8; RAM_SIZE],
-    cart : Rc<Cartridge>,
+    ram : [u8; RAM_SIZE as usize],
+    cart : Rc<RefCell<Cartridge>>,
 }
 
 struct CPUFlags {
@@ -81,26 +82,19 @@ impl fmt::Debug for CPU {
     }
 }
 
-use std::ops::{ Index, IndexMut };
-impl Index<usize> for CPUMem {
-    type Output = u8;
-    fn index(&self, index: usize) -> &Self::Output {
-        match index {
-            RAM_FIRST...RAM_LAST => &self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &self.cart[index],
-            // TODO other types of memory
-            _ => panic!("couldn't map the index to CPU memory"),
+impl Memory for CPUMem {
+    fn loadb(&self, addr : u16) -> u8 {
+        match addr {
+            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize],
+            CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
+            _ => panic!("couldn't map the addr to CPU memory"),
         }
     }
-}
-
-impl IndexMut<usize> for CPUMem {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        match index {
-            RAM_FIRST...RAM_LAST => &mut self.ram[index % RAM_SIZE],
-            CART_FIRST...CART_LAST => &mut self.cart[index],
-            // TODO other types of memory
-            _ => panic!("couldn't map the index to CPU memory"),
+    fn storeb(&mut self, addr : u16, val : u8) {
+        match addr {
+            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize] = val,
+            CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
+            _ => panic!("couldn't map the addr to CPU memory"),
         }
     }
 }
@@ -118,13 +112,13 @@ impl CPU {
     }
 
     fn pc_getdb(&mut self) -> u16  {
-        let ret = self.mem[self.pc as usize] as u16 +
-            ((self.mem[(self.pc + 1) as usize] as u16) << 8);
+        let ret = self.mem.loadb(self.pc) as u16 +
+            ((self.mem.loadb(self.pc + 1) as u16) << 8);
         self.pc += 2;
         ret
     }
     fn pc_getb(&mut self) -> u8 {
-        let ret = self.mem[self.pc as usize];
+        let ret = self.mem.loadb(self.pc);
         self.pc += 1;
         ret
     }
@@ -137,7 +131,7 @@ impl CPU {
         self.flags.n = result & 0x80 != 0;
     }
 
-    pub fn new(cart : Rc<Cartridge>) -> CPU {
+    pub fn new(cart : Rc<RefCell<Cartridge>>) -> CPU {
         CPU {
             a : 0,
             x : 0,
@@ -153,7 +147,7 @@ impl CPU {
                 c : false,
             },
             mem : CPUMem {
-                ram : [0; RAM_SIZE],
+                ram : [0; RAM_SIZE as usize],
                 cart : cart,
             },
         }
