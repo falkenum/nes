@@ -3,6 +3,8 @@ mod tests;
 mod instructions;
 
 use cartridge::Cartridge;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const RAM_FIRST : usize = 0x0000;
 const RAM_SIZE : usize = 0x0800;
@@ -20,7 +22,7 @@ struct CPUMem {
     // 4018 - 401F : test mode stuff
     // 4020 - FFFF : cartridge
     ram : [u8; RAM_SIZE],
-    cart : Cartridge,
+    cart : Rc<Cartridge>,
 }
 
 struct CPUFlags {
@@ -64,6 +66,7 @@ pub struct CPU {
     flags : CPUFlags,
     mem : CPUMem,
 }
+
 use std::fmt;
 impl fmt::Debug for CPU {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -134,7 +137,7 @@ impl CPU {
         self.flags.n = result & 0x80 != 0;
     }
 
-    pub fn new() -> CPU {
+    pub fn new(cart : Rc<Cartridge>) -> CPU {
         CPU {
             a : 0,
             x : 0,
@@ -151,12 +154,8 @@ impl CPU {
             },
             mem : CPUMem {
                 ram : [0; RAM_SIZE],
-                cart : Cartridge::test(),
+                cart : cart,
             },
         }
-    }
-
-    pub fn load_cartridge(&mut self, new_cart : Cartridge) {
-        self.mem.cart = new_cart;
     }
 }

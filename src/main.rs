@@ -11,4 +11,8 @@ fn main() {
     // }
     // println!("{:?}", c);
 
+
+    // let mut n = nes::NES::new();
+
+    // n.run().unwrap();
 }

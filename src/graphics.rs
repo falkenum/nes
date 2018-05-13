@@ -1,4 +1,4 @@
-use ::sdl2::{ render, pixels, video };
+use ::sdl2::{ Sdl, VideoSubsystem, render, pixels, video };
 use self::pixels::PixelFormatEnum;
 // use self::event::Event;
 // use self::keyboard::Keycode;
@@ -11,8 +11,13 @@ const SCREEN_SIZE : usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
 const FORMAT : PixelFormatEnum = PixelFormatEnum::BGR24;
 
 pub struct Screen {
+    sdl_context : Sdl,
+    video_subsystem : VideoSubsystem,
     canvas : render::Canvas<video::Window>,
-    tc : render::TextureCreator<video::WindowContext>,
+}
+
+pub struct PictureCreator {
+    texture_creator : render::TextureCreator<video::WindowContext>,
 }
 
 pub struct Picture<'a> {
@@ -31,24 +36,32 @@ impl<'a> Screen {
 
         let canvas = window.into_canvas().build().unwrap();
 
-        let tc = canvas.texture_creator();
-
-
         Screen {
+            sdl_context : sdl_context,
+            video_subsystem : video_subsystem,
             canvas : canvas,
-            tc : tc,
         }
     }
 
-    fn update(&mut self, picture : &render::Texture) {
-        self.canvas.copy(&picture, None, None).unwrap();
+    pub fn update_and_show(&mut self, picture : &Picture) {
+        self.canvas.copy(&picture.texture, None, None).unwrap();
         self.canvas.present();
     }
 
-    pub fn new_picture(&'a mut self) -> Picture<'a> {
+    pub fn picture_creator(&self) -> PictureCreator {
+        PictureCreator {
+            texture_creator : self.canvas.texture_creator()
+        }
+    }
+}
+
+impl PictureCreator {
+    pub fn create_picture<'a>(&'a self) -> Picture<'a> {
         Picture {
-            texture : self.tc.create_texture_streaming(FORMAT, WIDTH as u32,
-                                                   HEIGHT as u32).unwrap(),
+            texture : self.texture_creator
+                          .create_texture_streaming(FORMAT, WIDTH as u32,
+                                                    HEIGHT as u32)
+                          .unwrap(),
         }
     }
 }
