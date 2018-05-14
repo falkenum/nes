@@ -1,9 +1,6 @@
-use ::sdl2::{ EventPump, Sdl, VideoSubsystem, render, pixels, video };
+use ::sdl2::{ Sdl, VideoSubsystem, render, pixels, video };
 use self::pixels::PixelFormatEnum;
-use super::EmulatorInput;
-// use self::event::Event;
-// use self::keyboard::Keycode;
-// use std::time::Duration;
+use super::input::EmulatorInput;
 
 const FORMAT : PixelFormatEnum = PixelFormatEnum::BGR24;
 const WIDTH : usize = 256;
@@ -30,7 +27,7 @@ impl Screen {
         let sdl_context = ::sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let window = video_subsystem.window("first", 400, 400)
+        let window = video_subsystem.window("NES", 400, 400)
             .position_centered()
             .build()
             .unwrap();
@@ -56,7 +53,7 @@ impl Screen {
     }
 
     pub fn emulator_input(&self) -> EmulatorInput {
-        EmulatorInput { pump : self.sdl_context.event_pump().unwrap() }
+        EmulatorInput::new(self.sdl_context.event_pump().unwrap())
     }
 }
 

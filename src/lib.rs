@@ -7,41 +7,21 @@ mod cpu;
 mod graphics;
 mod ppu;
 mod apu;
-use sdl2::event::Event;
-
-enum EmulatorEvent {
-    Controller,
-    Continue,
-    Exit,
-}
-
-struct EmulatorInput {
-    pump : sdl2::EventPump,
-}
-
-impl EmulatorInput {
-    fn input_events(&mut self) -> Vec<EmulatorEvent> {
-
-
-        self.pump.poll_iter().map( |event|
-            match event {
-                Event::Quit {..} |
-                Event::KeyDown {..} => EmulatorEvent::Exit,
-                _ => EmulatorEvent::Continue,
-            }
-        ).collect()
-    }
-}
-
-
+mod input;
 
 use cartridge::Cartridge;
 use cpu::CPU;
 use ppu::PPU;
 use apu::APU;
 use graphics::Screen;
+use input::EmulatorEvent;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+/*
+ * TODO: figure out how the cycles/timing of ppu and cpu need to work.
+ *       Decide where to start working on the ppu.
+ */
 
 pub fn run_emulator(cart : Cartridge) {
     // I am using Rc/RefCell because both the cpu and ppu
@@ -49,7 +29,7 @@ pub fn run_emulator(cart : Cartridge) {
     let cart_ref = Rc::new(RefCell::new(cart));
 
     let mut screen = Screen::new();
-    let input = screen.emulator_input();
+    let mut input = screen.emulator_input();
     let mut cpu = CPU::new(Rc::clone(&cart_ref));
     let mut ppu = PPU::new(Rc::clone(&cart_ref));
     let _apu = APU::new();
@@ -64,8 +44,14 @@ pub fn run_emulator(cart : Cartridge) {
     ppu.render(&mut picture);
     screen.update_and_show(&picture);
 
-    loop {
-        ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+    'running: loop {
+        for event in input.events() {
+            match event {
+                EmulatorEvent::Exit => break 'running,
+                EmulatorEvent::Continue => (),
+            }
+        }
+        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
     }
 
 }

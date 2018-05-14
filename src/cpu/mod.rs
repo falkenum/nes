@@ -105,6 +105,7 @@ impl CPU {
         println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
         self.exec_op(op);
     }
+
     pub fn get_pc (&self) -> u16 { self.pc }
 
     fn exec_op(&mut self, op : u8) {
@@ -117,6 +118,7 @@ impl CPU {
         self.pc += 2;
         ret
     }
+
     fn pc_getb(&mut self) -> u8 {
         let ret = self.mem.loadb(self.pc);
         self.pc += 1;
