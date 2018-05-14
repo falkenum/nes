@@ -1,14 +1,15 @@
-use ::sdl2::{ Sdl, VideoSubsystem, render, pixels, video };
+use ::sdl2::{ EventPump, Sdl, VideoSubsystem, render, pixels, video };
 use self::pixels::PixelFormatEnum;
+use super::EmulatorInput;
 // use self::event::Event;
 // use self::keyboard::Keycode;
 // use std::time::Duration;
 
+const FORMAT : PixelFormatEnum = PixelFormatEnum::BGR24;
 const WIDTH : usize = 256;
 const HEIGHT : usize = 240;
 const BYTES_PER_PIXEL : usize = 3;
-const SCREEN_SIZE : usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
-const FORMAT : PixelFormatEnum = PixelFormatEnum::BGR24;
+pub const SCREEN_SIZE : usize = WIDTH * HEIGHT * BYTES_PER_PIXEL;
 
 pub struct Screen {
     sdl_context : Sdl,
@@ -24,7 +25,7 @@ pub struct Picture<'a> {
     texture : render::Texture<'a>
 }
 
-impl<'a> Screen {
+impl Screen {
     pub fn new() -> Screen {
         let sdl_context = ::sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -53,7 +54,12 @@ impl<'a> Screen {
             texture_creator : self.canvas.texture_creator()
         }
     }
+
+    pub fn emulator_input(&self) -> EmulatorInput {
+        EmulatorInput { pump : self.sdl_context.event_pump().unwrap() }
+    }
 }
+
 
 impl PictureCreator {
     pub fn create_picture<'a>(&'a self) -> Picture<'a> {
@@ -71,15 +77,3 @@ impl<'a> Picture<'a> {
         self.texture.update(None, &pixeldata, WIDTH*BYTES_PER_PIXEL).unwrap();
     }
 }
-
-// let mut event_pump = sdl_context.event_pump().unwrap();
-// 'running: loop {
-//     for event in event_pump.poll_iter() {
-//         match event {
-//             Event::Quit {..} | Event::KeyDown {..} => break 'running,
-//             _ => {},
-//         }
-//     }
-
-//     ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
-// }

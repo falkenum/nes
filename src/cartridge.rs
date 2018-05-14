@@ -17,7 +17,7 @@ impl Cartridge {
     }
 
     // https://wiki.nesdev.com/w/index.php/INES
-    pub fn from_ines_file(filename : String) -> Cartridge {
+    pub fn from_ines_file(filename : &str) -> Cartridge {
         use std::fs::File;
         use std::io::prelude::*;
         const HEADER_SIZE : usize = 16;

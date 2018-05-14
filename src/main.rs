@@ -12,7 +12,6 @@ fn main() {
     // println!("{:?}", c);
 
 
-    // let mut n = nes::NES::new();
+    nes::run_emulator(nes::cartridge::Cartridge::from_ines_file("test.nes"));
 
-    // n.run().unwrap();
 }

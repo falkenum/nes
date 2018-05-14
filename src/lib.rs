@@ -2,39 +2,38 @@
 
 extern crate sdl2;
 
-mod cartridge;
+pub mod cartridge;
 mod cpu;
 mod graphics;
+mod ppu;
+mod apu;
+use sdl2::event::Event;
 
-mod ppu {
-    use super::{ Cartridge, RefCell, Rc };
+enum EmulatorEvent {
+    Controller,
+    Continue,
+    Exit,
+}
 
-    pub struct PPU {
-        vram : [u8; 100],
-        cart : Rc<RefCell<Cartridge>>,
-    }
+struct EmulatorInput {
+    pump : sdl2::EventPump,
+}
 
-    impl PPU {
-        pub fn new(_cart : Rc<RefCell<Cartridge>>) -> PPU {
-            PPU {
-                vram : [255; 100],
-                cart : _cart,
+impl EmulatorInput {
+    fn input_events(&mut self) -> Vec<EmulatorEvent> {
+
+
+        self.pump.poll_iter().map( |event|
+            match event {
+                Event::Quit {..} |
+                Event::KeyDown {..} => EmulatorEvent::Exit,
+                _ => EmulatorEvent::Continue,
             }
-        }
-        pub fn render(&self, picture : &mut super::graphics::Picture) {
-            picture.update(&self.vram);
-        }
+        ).collect()
     }
 }
 
-mod apu {
-    pub struct APU {}
-    impl APU {
-        pub fn new() -> APU {
-            APU {}
-        }
-    }
-}
+
 
 use cartridge::Cartridge;
 use cpu::CPU;
@@ -44,35 +43,31 @@ use graphics::Screen;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct NES {
-    cpu : CPU,
-    ppu : PPU,
-    apu : APU,
-    screen : Screen,
-}
+pub fn run_emulator(cart : Cartridge) {
+    // I am using Rc/RefCell because both the cpu and ppu
+    // must be able to access the Cartridge (shared ownership)
+    let cart_ref = Rc::new(RefCell::new(cart));
 
-impl NES {
+    let mut screen = Screen::new();
+    let input = screen.emulator_input();
+    let mut cpu = CPU::new(Rc::clone(&cart_ref));
+    let mut ppu = PPU::new(Rc::clone(&cart_ref));
+    let _apu = APU::new();
 
-    pub fn new(cart : Cartridge) -> NES {
-        let x = Rc::new(RefCell::new(cart));
-        NES {
-            cpu : CPU::new(Rc::clone(&x)),
-            ppu : PPU::new(Rc::clone(&x)),
-            apu : APU::new(),
-            screen : Screen::new(),
-        }
+    // current version of rust-sdl2 requires that I use a
+    // TextureCreator that is alive as long as the Texture is,
+    // which is the reason I ended up with this annoying
+    // picture_creator thing
+    let picture_creator = screen.picture_creator();
+    let mut picture = picture_creator.create_picture();
+
+    ppu.render(&mut picture);
+    screen.update_and_show(&picture);
+
+    loop {
+        ::std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
     }
 
-    pub fn run(&mut self) -> Result<(), &str> {
-
-        let picture_creator = self.screen.picture_creator();
-        let mut picture = picture_creator.create_picture();
-
-        self.ppu.render(&mut picture);
-        self.screen.update_and_show(&picture);
-
-        Ok(())
-    }
 }
 
 trait Memory {
