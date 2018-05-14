@@ -30,8 +30,8 @@ pub fn run_emulator(cart : Cartridge) {
 
     let mut screen = Screen::new();
     let mut input = screen.emulator_input();
-    let mut cpu = CPU::new(Rc::clone(&cart_ref));
-    let mut ppu = PPU::new(Rc::clone(&cart_ref));
+    let _cpu = CPU::new(Rc::clone(&cart_ref));
+    let ppu = PPU::new(Rc::clone(&cart_ref));
     let _apu = APU::new();
 
     // current version of rust-sdl2 requires that I use a

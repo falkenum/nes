@@ -12,6 +12,6 @@ fn main() {
     // println!("{:?}", c);
 
 
-    nes::run_emulator(nes::cartridge::Cartridge::from_ines_file("test.nes"));
+    nes::run_emulator(nes::cartridge::Cartridge::from_ines_file("roms/mario.nes"));
 
 }

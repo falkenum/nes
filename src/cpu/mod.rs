@@ -26,6 +26,24 @@ struct CPUMem {
     cart : Rc<RefCell<Cartridge>>,
 }
 
+
+impl Memory for CPUMem {
+    fn loadb(&self, addr : u16) -> u8 {
+        match addr {
+            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize],
+            CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
+            _ => panic!("couldn't map the addr to CPU memory"),
+        }
+    }
+    fn storeb(&mut self, addr : u16, val : u8) {
+        match addr {
+            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize] = val,
+            CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
+            _ => panic!("couldn't map the addr to CPU memory"),
+        }
+    }
+}
+
 struct CPUFlags {
     n : bool,
     v : bool,
@@ -66,6 +84,7 @@ pub struct CPU {
     pc : u16,
     flags : CPUFlags,
     mem : CPUMem,
+    cycles : usize,
 }
 
 use std::fmt;
@@ -82,35 +101,43 @@ impl fmt::Debug for CPU {
     }
 }
 
-impl Memory for CPUMem {
-    fn loadb(&self, addr : u16) -> u8 {
-        match addr {
-            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize],
-            CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
-            _ => panic!("couldn't map the addr to CPU memory"),
-        }
-    }
-    fn storeb(&mut self, addr : u16, val : u8) {
-        match addr {
-            RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize] = val,
-            CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
-            _ => panic!("couldn't map the addr to CPU memory"),
-        }
-    }
-}
+// The number of cycles that each machine operation takes. Indexed by opcode number.
+//
+// This is copied from FCEU.
+static CYCLE_TABLE: [usize; 256] = [
+    /*0x00*/ 7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
+    /*0x10*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    /*0x20*/ 6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
+    /*0x30*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    /*0x40*/ 6,6,2,8,3,3,5,5,3,2,2,2,3,4,6,6,
+    /*0x50*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    /*0x60*/ 6,6,2,8,3,3,5,5,4,2,2,2,5,4,6,6,
+    /*0x70*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    /*0x80*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+    /*0x90*/ 2,6,2,6,4,4,4,4,2,5,2,5,5,5,5,5,
+    /*0xA0*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+    /*0xB0*/ 2,5,2,5,4,4,4,4,2,4,2,4,4,4,4,4,
+    /*0xC0*/ 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+    /*0xD0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    /*0xE0*/ 2,6,3,8,3,3,5,5,2,2,2,2,4,4,6,6,
+    /*0xF0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+];
 
 impl CPU {
     pub fn step (&mut self) {
         let op = self.pc_getb();
+
         println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
-        self.exec_op(op);
+
+        self.add_cycles(CYCLE_TABLE[op as usize]);
+        instructions::decode::INSTR[op as usize](self);
     }
 
     pub fn get_pc (&self) -> u16 { self.pc }
 
-    fn exec_op(&mut self, op : u8) {
-        instructions::decode::INSTR[op as usize](self);
-    }
+    fn add_cycles(&mut self, c : usize) { self.cycles += c; }
+    fn reset_cycles(&mut self) { self.cycles = 0; }
+    fn get_cycles(&self) -> usize { self.cycles }
 
     fn pc_getdb(&mut self) -> u16  {
         let ret = self.mem.loadb(self.pc) as u16 +
@@ -152,6 +179,7 @@ impl CPU {
                 ram : [0; RAM_SIZE as usize],
                 cart : cart,
             },
+            cycles : 0,
         }
     }
 }

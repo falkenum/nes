@@ -1,3 +1,4 @@
+use ::Memory;
 
 pub struct Cartridge {
     prgrom : Vec<u8>,
@@ -59,30 +60,35 @@ impl Cartridge {
         // TODO check if there is still more data (invalid file)
 
         println!("loaded cartridge");
-        println!("num prgrom banks: {}; total prgrom size: {}",
-            num_prgrom_banks, prgrom_size);
-        println!("num chrrom banks: {}; total chrrom size: {}",
-            num_chrrom_banks, chrrom_size);
+        println!("num prgrom banks: {}; total prgrom size: {}k",
+            num_prgrom_banks, prgrom_size / 1024);
+        println!("num chrrom banks: {}; total chrrom size: {}k",
+            num_chrrom_banks, chrrom_size / 1024);
 
         Cartridge { prgrom : new_prgrom, chrrom : new_chrrom }
     }
 }
 
-const ROM_FIRST : u16 = 0x8000;
-const ROM_LAST : u16 = 0xFFFF;
+const CHR_FIRST : u16 = 0x0000;
+const CHR_LAST : u16 = 0x1FFF;
+const PRG_FIRST : u16 = 0x8000;
+const PRG_LAST : u16 = 0xFFFF;
 
-// TODO right now I'm assuming it's NROM256
-impl ::Memory for Cartridge {
+// TODO right now I'm assuming it's NPRG256
+impl Memory for Cartridge {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
-            ROM_FIRST...ROM_LAST => self.prgrom[(addr - ROM_FIRST) as usize],
+            CHR_FIRST...CHR_LAST => self.chrrom[addr as usize],
+            PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize],
             _ => panic!("invalid cartridge address"),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
         match addr {
-            ROM_FIRST...ROM_LAST => self.prgrom[(addr - ROM_FIRST) as usize] = val,
-            _ => panic!("can't modify cartridge rom"),
+            // TODO should this be writeable?
+            // CHR_FIRST...CHR_LAST => self.chrrom[addr as usize] = val,
+            PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize] = val,
+            _ => panic!("invalid cartridge address"),
         }
     }
 }
