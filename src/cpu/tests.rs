@@ -1,8 +1,8 @@
 
-use super::{ CPU, RAM_LAST, RAM_SIZE, Memory, Cartridge, RefCell, Rc };
+use super::{ CPU, RAM_LAST, RAM_SIZE, Memory, Cartridge };
 #[test]
 fn ram() {
-    let c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let c = CPU::test();
     let mut mem = c.mem;
 
     for i in 0..(RAM_LAST + 1) {
@@ -14,8 +14,23 @@ fn ram() {
 }
 
 #[test]
+fn interrupt() {
+    let mut c = CPU::test();
+    c.mem.storeb(0xFFFA, 0xAB);
+    c.mem.storeb(0xFFFB, 0xCD);
+    c.pc = 0x8001;
+    c.nmi();
+    assert_eq!(c.mem.loadb(0x01FF), 0x80);
+    assert_eq!(c.mem.loadb(0x01FE), 0x02);
+    assert_eq!(c.mem.loadb(0x01FD), 0b00100000);
+    assert_eq!(c.sp, 0xFC);
+    assert_eq!(c.pc, 0xCDAB);
+    assert_eq!(c.flags.i, true);
+}
+
+#[test]
 fn mapping() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
 
     c.mem.storeb(0x0, 0xA);
     c.mem.storeb(0x1, 0xB);

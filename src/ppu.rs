@@ -1,13 +1,18 @@
 
 use super::graphics::SCREEN_SIZE;
-use super::{ Memory, Cartridge, RefCell, Rc };
+use super::{ Component, Memory, Cartridge };
 
 pub struct PPU {
     pixeldata : [u8; SCREEN_SIZE],
     mem : PPUMem,
 }
 
-const VRAM_SIZE : u16 = 0x1000;
+enum MirroringType {
+    Vertical,
+    Horizontal,
+}
+
+const VRAM_SIZE : u16 = 0x0800;
 const VRAM_FIRST : u16 = 0x2000;
 const VRAM_LAST : u16 = 0x3EFF;
 const PALETTE_RAM_SIZE : u16 = 0x0020;
@@ -26,12 +31,15 @@ struct PPUMem {
     // 3000 - 3EFF : Mirror of 2000 - 2EFF
     // 3F00 - 3F1F : Palette RAM
     // 3F20 - 3FFF : mirrors of 3F20 - 3FFF
-    cart : Rc<RefCell<Cartridge>>,
+    cart : Component<Cartridge>,
     vram : [u8; VRAM_SIZE as usize],
     palette_ram : [u8; PALETTE_RAM_SIZE as usize],
 }
 
 
+// TODO right now only vertical mirroring is suppported
+// need to update the impl Memory to index into vram appropriately for
+// horizontal mirroring.
 impl Memory for PPUMem {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
@@ -70,7 +78,7 @@ fn fill_color(r : u8, g : u8, b : u8) -> [u8; SCREEN_SIZE] {
 }
 
 impl PPU {
-    pub fn new(cart : Rc<RefCell<Cartridge>>) -> PPU {
+    pub fn new(cart : Component<Cartridge>) -> PPU {
         PPU {
             pixeldata : fill_color(0, 255, 255),
             mem : PPUMem {
@@ -82,5 +90,22 @@ impl PPU {
     }
     pub fn render(&self, picture : &mut super::graphics::Picture) {
         picture.update(&self.pixeldata);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ PPU, Memory, Cartridge };
+    #[test]
+    fn mappings() {
+        let mut p = PPU::new(Cartridge::test_ref());
+        p.mem.storeb(0x2000, 5);
+        assert_eq!(p.mem.loadb(0x3000), 5);
+        p.mem.storeb(0x2EFF, 5);
+        assert_eq!(p.mem.loadb(0x3EFF), 5);
+        p.mem.storeb(0x3F00, 5);
+        assert_eq!(p.mem.loadb(0x3F20), 5);
+        p.mem.storeb(0x3F1F, 5);
+        assert_eq!(p.mem.loadb(0x3FFF), 5);
     }
 }

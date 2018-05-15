@@ -1,8 +1,10 @@
-use super::{ CPU, Memory };
+use super::{ CPU, Memory, split_bytes, concat_bytes };
 #[cfg(test)]
 mod tests;
 pub mod decode;
 
+// turns out that I didn't need to implement BCD because the
+// NES version of the 6502 (the 2A03) has it disabled, but here it is
 fn from_bcd(x : u8) -> u8 { (x & 0x0F) + ((x & 0xF0) >> 4) * 10 }
 fn to_bcd(x : u8) -> u8 { ((x / 10) << 4) + (x % 10) }
 
@@ -13,16 +15,6 @@ enum InstrArg {
     Immediate(u8),
     Address(u16),
 }
-
-fn split_bytes(val : u16) -> (u8, u8) {
-    ((val >> 8) as u8, val as u8)
-}
-
-fn concat_bytes(high : u8, low : u8) -> u16 {
-    ((high as u16) << 8) + low as u16
-}
-
-const STACK_BEGIN : u16 = 0x100;
 
 impl CPU {
     fn unwrap_imm_or_memval(&self, arg : InstrArg) -> u8 {
@@ -54,16 +46,6 @@ impl CPU {
         self.flags.c = val <= reg;
     }
 
-    fn push(&mut self, val : u8) {
-        self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
-        self.sp -= 1;
-    }
-
-    fn pop(&mut self) -> u8 {
-        self.sp += 1;
-        self.mem.loadb(STACK_BEGIN + self.sp as u16)
-    }
-
     fn rti(&mut self, arg : InstrArg) {
         self.unwrap_implied(arg);
 
@@ -93,18 +75,8 @@ impl CPU {
         let dest_low = self.mem.loadb(0xFFFE);
         self.pc = concat_bytes(dest_high, dest_low);
 
-        let result : u8 = {
-            let flags = &self.flags;
-                ((flags.n as u8) << 7) +
-                ((flags.v as u8) << 6) +
-                              (1 << 5) + // unused
-                              (1 << 4) + // b flag
-                ((flags.d as u8) << 3) +
-                ((flags.i as u8) << 2) +
-                ((flags.z as u8) << 1) +
-                (flags.c as u8)
-        };
-        self.push(result);
+        let status = self.flags.to_byte() | (1 << 4); // set b flag
+        self.push(status);
 
         self.flags.i = true;
     }

@@ -1,10 +1,10 @@
 use super::{ CPU, InstrArg, Memory };
-use ::{ Cartridge, RefCell, Rc };
+use ::Cartridge;
 use ::cpu::CPUFlags;
 
 #[test]
 fn brk_rti() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0xFFFE, 0xAB);
     c.mem.storeb(0xFFFF, 0xCD);
     c.pc = 0x8001;
@@ -24,7 +24,7 @@ fn brk_rti() {
 
 #[test]
 fn rts() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.sp = 0xFB;
     c.mem.storeb(0x01FF, 0x07);
     c.mem.storeb(0x01FE, 0xFE);
@@ -40,7 +40,7 @@ fn rts() {
 
 #[test]
 fn jsr() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.pc = 0x8003;
     c.jsr(InstrArg::Address(0x7F03));
     assert_eq!(c.sp, 0xFD);
@@ -59,7 +59,7 @@ fn jsr() {
 
 #[test]
 fn bit() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x00;
     c.mem.storeb(0x00FF, 0xFF);
     c.bit(InstrArg::Address(0x00FF));
@@ -113,7 +113,7 @@ fn bit() {
 
 #[test]
 fn branches() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
 
     c.pc = 0x8000;
     c.flags.z = false;
@@ -204,7 +204,7 @@ fn branches() {
 
 #[test]
 fn flags() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.sec(InstrArg::Implied);
     assert_eq!(c.flags.c, true);
     c.clc(InstrArg::Implied);
@@ -227,7 +227,7 @@ fn flags() {
 
 #[test]
 fn pla() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0x1FF, 0xFF);
     c.sp -= 1;
 
@@ -240,7 +240,7 @@ fn pla() {
 
 #[test]
 fn pha() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0xFF;
 
     c.pha(InstrArg::Implied);
@@ -250,7 +250,7 @@ fn pha() {
 
 #[test]
 fn plp() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0x1FF, 0xFF);
     c.sp -= 1;
 
@@ -278,7 +278,7 @@ fn plp() {
 
 #[test]
 fn php() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.flags = CPUFlags {
         n : true,
         v : true,
@@ -307,7 +307,7 @@ fn php() {
 #[test]
 fn txs() {
     // this shouldn't change flags
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.x = 0;
     c.flags.z = false;
     c.flags.n = true;
@@ -319,7 +319,7 @@ fn txs() {
 
 #[test]
 fn tsx() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.sp = 5;
     c.tsx(InstrArg::Implied);
     assert_eq!(c.x, 5);
@@ -339,7 +339,7 @@ fn tsx() {
 
 #[test]
 fn tya() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.y = 5;
     c.tya(InstrArg::Implied);
     assert_eq!(c.a, 5);
@@ -359,7 +359,7 @@ fn tya() {
 
 #[test]
 fn tay() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 5;
     c.tay(InstrArg::Implied);
     assert_eq!(c.y, 5);
@@ -379,7 +379,7 @@ fn tay() {
 
 #[test]
 fn txa() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.x = 5;
     c.txa(InstrArg::Implied);
     assert_eq!(c.a, 5);
@@ -399,7 +399,7 @@ fn txa() {
 
 #[test]
 fn tax() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 5;
     c.tax(InstrArg::Implied);
     assert_eq!(c.x, 5);
@@ -419,7 +419,7 @@ fn tax() {
 
 #[test]
 fn rol() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x80;
     c.rol(InstrArg::Implied);
     assert_eq!(c.flags.z, true);
@@ -443,7 +443,7 @@ fn rol() {
 
 #[test]
 fn ror() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x01;
     c.ror(InstrArg::Implied);
     assert_eq!(c.flags.z, true);
@@ -475,7 +475,7 @@ fn ror() {
 
 #[test]
 fn asl() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x01;
     c.asl(InstrArg::Implied);
     assert_eq!(c.flags.z, false);
@@ -494,7 +494,7 @@ fn asl() {
 
 #[test]
 fn lsr() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x01;
     c.lsr(InstrArg::Implied);
     assert_eq!(c.flags.z, true);
@@ -513,7 +513,7 @@ fn lsr() {
 
 #[test]
 fn iny() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.y = 0xFE;
     c.iny(InstrArg::Implied);
     assert_eq!(c.flags.z, false);
@@ -526,7 +526,7 @@ fn iny() {
 
 #[test]
 fn inx() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.x = 0xFE;
     c.inx(InstrArg::Implied);
     assert_eq!(c.flags.z, false);
@@ -539,7 +539,7 @@ fn inx() {
 
 #[test]
 fn inc() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0x00FF, 0xFE);
     c.inc(InstrArg::Address(0xFF));
     assert_eq!(c.flags.z, false);
@@ -552,7 +552,7 @@ fn inc() {
 
 #[test]
 fn dey() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.y = 0x1;
     c.dey(InstrArg::Implied);
     assert_eq!(c.flags.z, true);
@@ -565,7 +565,7 @@ fn dey() {
 
 #[test]
 fn dex() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.x = 0x1;
     c.dex(InstrArg::Implied);
     assert_eq!(c.flags.z, true);
@@ -578,7 +578,7 @@ fn dex() {
 
 #[test]
 fn dec() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0x00FF, 0x1);
     c.dec(InstrArg::Address(0xFF));
     assert_eq!(c.flags.z, true);
@@ -591,7 +591,7 @@ fn dec() {
 
 #[test]
 fn cpx() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.x = 5;
     // self.a == arg
     c.cpx(InstrArg::Immediate(5));
@@ -614,7 +614,7 @@ fn cpx() {
 
 #[test]
 fn cpy() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.y = 5;
     // self.a == arg
     c.cpy(InstrArg::Immediate(5));
@@ -637,7 +637,7 @@ fn cpy() {
 
 #[test]
 fn cmp() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 5;
     // self.a == arg
     c.cmp(InstrArg::Immediate(5));
@@ -660,7 +660,7 @@ fn cmp() {
 
 #[test]
 fn sbc() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 5;
     c.flags.c = true;
     // pos - pos = pos
@@ -712,7 +712,7 @@ fn sbc() {
     assert_eq!(c.flags.c, true);
 
     // BCD
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0x15;
     c.flags.c = true;
     c.flags.d = true;
@@ -767,7 +767,7 @@ fn sbc() {
 
 #[test]
 fn adc() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 1;
     // pos + pos = pos
     c.adc(InstrArg::Immediate(1));
@@ -826,7 +826,7 @@ fn adc() {
     assert_eq!(c.flags.v, false);
     assert_eq!(c.flags.c, true);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 1;
     c.flags.d = true;
     c.adc(InstrArg::Immediate(0x99));
@@ -858,14 +858,14 @@ fn adc() {
 
 #[test]
 fn eor() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0b0101_0011;
     c.eor(InstrArg::Immediate(0b1010_0011));
     assert_eq!(c.a, 0xF0);
     assert_eq!(c.flags.z, false);
     assert_eq!(c.flags.n, true);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.a = 0xFF;
     c.eor(InstrArg::Immediate(0xFF));
     assert_eq!(c.a, 0x0);
@@ -875,7 +875,7 @@ fn eor() {
 
 #[test]
 fn and() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // immediate
     c.a = 0b0101_0101;
     c.mem.storeb(0x8000, 0x29);
@@ -883,7 +883,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.a = 0b0101_0101;
     c.mem.storeb(0x10, 0x0F);
@@ -892,7 +892,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -902,7 +902,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -913,7 +913,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, y
     c.a = 0b0101_0101;
     c.y = 1;
@@ -924,7 +924,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.a = 0b0101_0101;
     c.mem.storeb(0x07FF, 0x0F);
@@ -934,7 +934,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -945,7 +945,7 @@ fn and() {
     c.step();
     assert_eq!(c.a, 0x05);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, y
     c.a = 0b0101_0101;
     c.y = 1;
@@ -974,7 +974,7 @@ fn and() {
 
 #[test]
 fn ora() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // immediate
     c.a = 0b0101_0101;
     c.mem.storeb(0x8000, 0x09);
@@ -982,7 +982,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.a = 0b0101_0101;
     c.mem.storeb(0x10, 0b1010_1010);
@@ -991,7 +991,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -1001,7 +1001,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -1012,7 +1012,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, y
     c.a = 0b0101_0101;
     c.y = 1;
@@ -1023,7 +1023,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.a = 0b0101_0101;
     c.mem.storeb(0x07FF, 0b1010_1010);
@@ -1033,7 +1033,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, x
     c.a = 0b0101_0101;
     c.x = 1;
@@ -1044,7 +1044,7 @@ fn ora() {
     c.step();
     assert_eq!(c.a, 0xFF);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, y
     c.a = 0b0101_0101;
     c.y = 1;
@@ -1078,7 +1078,7 @@ fn ora() {
 
 #[test]
 fn sty() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.y = 1;
     c.mem.storeb(0x8000, 0x84);
@@ -1086,7 +1086,7 @@ fn sty() {
     c.step();
     assert_eq!(c.mem.loadb(0x00FF), 1);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, x
     c.y = 1;
     c.x = 2;
@@ -1095,7 +1095,7 @@ fn sty() {
     c.step();
     assert_eq!(c.mem.loadb(0x00FF), 1);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.y = 1;
     c.mem.storeb(0x8000, 0x8C);
@@ -1107,14 +1107,14 @@ fn sty() {
 
 #[test]
 fn ldy() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // immediate
     c.mem.storeb(0x8000, 0xA0);
     c.mem.storeb(0x8001, 0x10);
     c.step();
     assert_eq!(c.y, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.mem.storeb(0x00FF, 0x10);
     c.mem.storeb(0x8000, 0xA4);
@@ -1122,7 +1122,7 @@ fn ldy() {
     c.step();
     assert_eq!(c.y, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, x
     c.x = 1;
     c.mem.storeb(0x00FF, 0x10);
@@ -1131,7 +1131,7 @@ fn ldy() {
     c.step();
     assert_eq!(c.y, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.mem.storeb(0x10FF, 0x10);
     c.mem.storeb(0x8000, 0xAC);
@@ -1140,7 +1140,7 @@ fn ldy() {
     c.step();
     assert_eq!(c.y, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, x
     c.x = 1;
     c.mem.storeb(0x10FF, 0x10);
@@ -1165,7 +1165,7 @@ fn ldy() {
 
 #[test]
 fn stx() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.x = 1;
     c.mem.storeb(0x8000, 0x86);
@@ -1173,7 +1173,7 @@ fn stx() {
     c.step();
     assert_eq!(c.mem.loadb(0x00FF), 1);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, y
     c.x = 1;
     c.y = 2;
@@ -1182,7 +1182,7 @@ fn stx() {
     c.step();
     assert_eq!(c.mem.loadb(0x00FF), 1);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.x = 1;
     c.mem.storeb(0x8000, 0x8E);
@@ -1194,14 +1194,14 @@ fn stx() {
 
 #[test]
 fn ldx() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // immediate
     c.mem.storeb(0x8000, 0xA2);
     c.mem.storeb(0x8001, 0x10);
     c.step();
     assert_eq!(c.x, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.mem.storeb(0x00FF, 0x10);
     c.mem.storeb(0x8000, 0xA6);
@@ -1209,7 +1209,7 @@ fn ldx() {
     c.step();
     assert_eq!(c.x, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, y
     c.y = 1;
     c.mem.storeb(0x00FF, 0x10);
@@ -1218,7 +1218,7 @@ fn ldx() {
     c.step();
     assert_eq!(c.x, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.mem.storeb(0x10FF, 0x10);
     c.mem.storeb(0x8000, 0xAE);
@@ -1227,7 +1227,7 @@ fn ldx() {
     c.step();
     assert_eq!(c.x, 0x10);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, y
     c.y = 1;
     c.mem.storeb(0x10FF, 0x10);
@@ -1252,7 +1252,7 @@ fn ldx() {
 
 #[test]
 fn sta() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page
     c.a = 3;
     c.mem.storeb(0x8000, 0x85);
@@ -1260,7 +1260,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x0010), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // zero page, X
     c.a = 3;
     c.x = 1;
@@ -1269,7 +1269,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x0011), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute
     c.a = 3;
     c.mem.storeb(0x8000, 0x8D);
@@ -1278,7 +1278,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x10FF), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, x
     c.a = 3;
     c.x = 1;
@@ -1288,7 +1288,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x10FF), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // absolute, y
     c.a = 3;
     c.y = 1;
@@ -1298,7 +1298,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x10FF), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, x
     c.a = 3;
     c.x = 1;
@@ -1308,7 +1308,7 @@ fn sta() {
     c.step();
     assert_eq!(c.mem.loadb(0x10FF), 3);
 
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     // indirect, y
     c.a = 3;
     c.y = 1;
@@ -1321,7 +1321,7 @@ fn sta() {
 
 #[test]
 fn lda() {
-    let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+    let mut c = CPU::test();
     c.mem.storeb(0x00, 0x0A);
     c.mem.storeb(0x01, 0x0B);
     c.mem.storeb(0x0FF, 0x0C);

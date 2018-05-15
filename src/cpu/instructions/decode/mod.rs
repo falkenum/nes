@@ -122,6 +122,7 @@ macro_rules! instr {
         };
 }
 
+// TODO change to static? change implementation to not use macros
 const NUM_OPCODES : usize = 256;
 pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
     /* 0x00 */ instr!(implied, brk),

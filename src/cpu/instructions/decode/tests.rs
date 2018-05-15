@@ -1,8 +1,8 @@
-    use ::{ Memory, CPU, Rc, RefCell, Cartridge };
+    use ::{ Memory, CPU, Cartridge };
 
     #[test]
     fn cycles() {
-        let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+        let mut c = CPU::test();
         assert_eq!(c.get_cycles(), 0);
 
         // simple instruction
@@ -56,7 +56,7 @@
     #[test]
     fn addr_modes() {
 
-        let mut c = CPU::new(Rc::new(RefCell::new(Cartridge::test())));
+        let mut c = CPU::test();
 
         c.x = 0x00;
         assert_eq!(c.absolute_x(0x0000_u16), 0x0000_u16);

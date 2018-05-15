@@ -3,8 +3,7 @@ mod tests;
 mod instructions;
 
 use cartridge::Cartridge;
-use std::cell::RefCell;
-use std::rc::Rc;
+use super::{ Component, PPU, APU, Controller };
 use Memory;
 
 const RAM_FIRST : u16 = 0x0000;
@@ -14,7 +13,7 @@ const CART_FIRST : u16 = 0x4020;
 const CART_LAST : u16 = 0xFFFF;
 
 
-struct CPUMem {
+pub struct CPUMem {
     // 0000 - 07FF : ram
     // 0800 - 1FFF : mirrors of ram
     // 2000 - 2007 : PPU regs
@@ -23,9 +22,19 @@ struct CPUMem {
     // 4018 - 401F : test mode stuff
     // 4020 - FFFF : cartridge
     ram : [u8; RAM_SIZE as usize],
-    cart : Rc<RefCell<Cartridge>>,
+    cart : Component<Cartridge>,
+    ppu  : Component<PPU>,
+    apu  : Component<APU>,
+    controller : Component<Controller>,
 }
 
+fn split_bytes(val : u16) -> (u8, u8) {
+    ((val >> 8) as u8, val as u8)
+}
+
+fn concat_bytes(high : u8, low : u8) -> u16 {
+    ((high as u16) << 8) + low as u16
+}
 
 impl Memory for CPUMem {
     fn loadb(&self, addr : u16) -> u8 {
@@ -123,6 +132,8 @@ static CYCLE_TABLE: [usize; 256] = [
     /*0xF0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
 ];
 
+const STACK_BEGIN : u16 = 0x100;
+
 impl CPU {
     pub fn step (&mut self) {
         let op = self.pc_getb();
@@ -138,6 +149,34 @@ impl CPU {
     fn add_cycles(&mut self, c : usize) { self.cycles += c; }
     fn reset_cycles(&mut self) { self.cycles = 0; }
     fn get_cycles(&self) -> usize { self.cycles }
+
+    fn push(&mut self, val : u8) {
+        self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
+        self.sp -= 1;
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.sp += 1;
+        self.mem.loadb(STACK_BEGIN + self.sp as u16)
+    }
+
+    pub fn nmi(&mut self) {
+        // 7-clock interrupt sequence, same timing as BRK
+        self.add_cycles(7);
+
+        let (ret_high, ret_low) = split_bytes(self.pc + 1);
+        self.push(ret_high);
+        self.push(ret_low);
+
+        let dest_high = self.mem.loadb(0xFFFB);
+        let dest_low = self.mem.loadb(0xFFFA);
+        self.pc = concat_bytes(dest_high, dest_low);
+
+        let status = self.flags.to_byte();
+        self.push(status);
+
+        self.flags.i = true;
+    }
 
     fn pc_getdb(&mut self) -> u16  {
         let ret = self.mem.loadb(self.pc) as u16 +
@@ -159,8 +198,19 @@ impl CPU {
     fn set_n(&mut self, result : u8) {
         self.flags.n = result & 0x80 != 0;
     }
+    pub fn test() -> CPU {
+        let cart = Component::new(Cartridge::test());
+        let ppu  = Component::new(PPU::new(cart.new_ref()));
+        let apu  = Component::new(APU::new());
+        let controller = Component::new(Controller::new());
 
-    pub fn new(cart : Rc<RefCell<Cartridge>>) -> CPU {
+        CPU::new(cart, ppu, apu, controller)
+    }
+
+    pub fn new(cart : Component<Cartridge>,
+               ppu  : Component<PPU>,
+               apu  : Component<APU>,
+               controller : Component<Controller> ) -> CPU {
         CPU {
             a : 0,
             x : 0,
@@ -178,6 +228,9 @@ impl CPU {
             mem : CPUMem {
                 ram : [0; RAM_SIZE as usize],
                 cart : cart,
+                ppu : ppu,
+                apu : apu,
+                controller : controller,
             },
             cycles : 0,
         }

@@ -1,4 +1,4 @@
-use ::Memory;
+use super::{ Memory, Component };
 
 pub struct Cartridge {
     prgrom : Vec<u8>,
@@ -15,6 +15,16 @@ impl Cartridge {
             prgrom : new_prgrom,
             chrrom : Vec::new(),
         }
+    }
+    pub fn test_ref() -> Component<Cartridge> {
+        let mut new_prgrom = Vec::new();
+        new_prgrom.resize(0x8000, 0);
+        Component::new(
+            Cartridge {
+                prgrom : new_prgrom,
+                chrrom : Vec::new(),
+            }
+        )
     }
 
     // https://wiki.nesdev.com/w/index.php/INES
