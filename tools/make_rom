@@ -1,0 +1,9 @@
+#!/bin/bash
+
+./assembler test.s
+
+fsize=`stat --printf="%s" test.nes`
+
+for i in `seq 1 $((40976 - $fsize))`; do
+	echo -n -e '\x00' >> test.nes
+done

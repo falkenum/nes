@@ -22,11 +22,11 @@ use std::rc::Rc;
 
 pub fn run_emulator(cart : Cartridge) {
     let mut screen = Screen::new();
+    let mut input = screen.emulator_input();
 
     let cart  = Component::new(cart);
     let ppu   = Component::new(PPU::new(cart.new_ref()));
     let apu   = Component::new(APU::new());
-    let input = Component::new(screen.emulator_input());
     let controller = Component::new(Controller::new());
 
     let cpu = CPU::new(
@@ -43,12 +43,12 @@ pub fn run_emulator(cart : Cartridge) {
     screen.update_and_show(&picture);
 
     'running: loop {
-        for event in input.borrow_mut().events() {
+        for event in input.events() {
             match event {
                 EmulatorEvent::Exit => break 'running,
                 EmulatorEvent::Continue => (),
-                EmulatorEvent::ControllerEvent { status, button } =>
-                    controller.borrow_mut().update(status, button),
+                EmulatorEvent::ControllerEvent { action, button } =>
+                    controller.borrow_mut().update(action, button),
             }
         }
         std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
@@ -61,8 +61,6 @@ trait Memory {
     fn loadb(&self, addr : u16) -> u8;
 }
 
-// I am using Rc/RefCell because both the cpu and ppu
-// must be able to access the Cartridge (shared ownership)
 pub struct Component<T> (
     Rc<RefCell<T>>
 );

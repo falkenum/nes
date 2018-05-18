@@ -1,12 +1,12 @@
 
 use sdl2::event::Event;
 use sdl2::EventPump;
-use super::controller::{ ButtonStatus, Button };
+use super::controller::{ ButtonAction, Button };
 // use self::keyboard::Keycode;
 
 
 pub enum EmulatorEvent {
-    ControllerEvent { status : ButtonStatus, button : Button },
+    ControllerEvent { action : ButtonAction, button : Button },
     Continue,
     Exit,
 }
