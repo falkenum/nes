@@ -19,8 +19,8 @@ impl EmulatorInput {
     pub fn events(&mut self) -> Vec<EmulatorEvent> {
         self.pump.poll_iter().map(
             |event| match event {
-                Event::Quit {..} |
-                Event::KeyDown {..} => EmulatorEvent::Exit,
+                Event::Quit {..} => EmulatorEvent::Exit,
+                // Event::KeyDown {..} => EmulatorEvent::Exit,
                 _ => EmulatorEvent::Continue,
             }
         ).collect()

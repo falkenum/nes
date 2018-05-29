@@ -1,8 +1,9 @@
-use super::{ Memory, Component };
+use super::{ Memory, ComponentRc };
 
 pub struct Cartridge {
     prgrom : Vec<u8>,
     chrrom : Vec<u8>,
+    vram : [u8; VRAM_SIZE as usize],
 }
 
 impl Cartridge {
@@ -14,16 +15,12 @@ impl Cartridge {
         Cartridge {
             prgrom : new_prgrom,
             chrrom : Vec::new(),
+            vram : [0; VRAM_SIZE as usize],
         }
     }
-    pub fn test_ref() -> Component<Cartridge> {
-        let mut new_prgrom = Vec::new();
-        new_prgrom.resize(0x8000, 0);
-        Component::new(
-            Cartridge {
-                prgrom : new_prgrom,
-                chrrom : Vec::new(),
-            }
+    pub fn test_ref() -> ComponentRc<Cartridge> {
+        ComponentRc::new(
+            Cartridge::test(),
         )
     }
 
@@ -69,13 +66,17 @@ impl Cartridge {
 
         // TODO check if there is still more data (invalid file)
 
-        println!("loaded cartridge");
+        println!("loaded cartridge {}", filename);
         println!("num prgrom banks: {}; total prgrom size: {}k",
             num_prgrom_banks, prgrom_size / 1024);
         println!("num chrrom banks: {}; total chrrom size: {}k",
             num_chrrom_banks, chrrom_size / 1024);
 
-        Cartridge { prgrom : new_prgrom, chrrom : new_chrrom }
+        Cartridge {
+            prgrom : new_prgrom,
+            chrrom : new_chrrom,
+            vram : [0; VRAM_SIZE as usize],
+        }
     }
 }
 
@@ -84,19 +85,31 @@ const CHR_LAST : u16 = 0x1FFF;
 const PRG_FIRST : u16 = 0x8000;
 const PRG_LAST : u16 = 0xFFFF;
 
+const VRAM_SIZE : u16 = 0x0800;
+const VRAM_FIRST : u16 = 0x2000;
+const VRAM_LAST : u16 = 0x3EFF;
+
+/*
+ I'm including VRAM in the cartridge because the cartridge can map ppu memory to
+ VRAM or somewhere else. So it might not make sense from an OOP perspective,
+ but it's easier to code.
+*/
+
+
 // TODO right now I'm assuming it's NPRG256
 impl Memory for Cartridge {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
             CHR_FIRST...CHR_LAST => self.chrrom[addr as usize],
+            VRAM_FIRST...VRAM_LAST => self.vram[(addr % VRAM_SIZE) as usize],
             PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize],
             _ => panic!("invalid cartridge address"),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
         match addr {
-            // TODO should this be writeable?
-            // CHR_FIRST...CHR_LAST => self.chrrom[addr as usize] = val,
+            CHR_FIRST...CHR_LAST => self.chrrom[addr as usize] = val,
+            VRAM_FIRST...VRAM_LAST => self.vram[(addr % VRAM_SIZE) as usize] = val,
             PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize] = val,
             _ => panic!("invalid cartridge address"),
         }

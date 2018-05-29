@@ -3,14 +3,17 @@ mod tests;
 mod instructions;
 
 use cartridge::Cartridge;
-use super::{ Component, PPU, APU, Controller };
+use super::{ ComponentRc, PPU, APU, Controller };
 use Memory;
 
-const RAM_FIRST : u16 = 0x0000;
-const RAM_SIZE : u16 = 0x0800;
-const RAM_LAST : u16 = 0x1FFF;
-const CART_FIRST : u16 = 0x4020;
-const CART_LAST : u16 = 0xFFFF;
+const RAM_FIRST     : u16 = 0x0000;
+const RAM_LAST      : u16 = 0x1FFF;
+const RAM_SIZE      : u16 = 0x0800;
+const CART_FIRST    : u16 = 0x4020;
+const CART_LAST     : u16 = 0xFFFF;
+const PPUREGS_FIRST : u16 = 0x2000;
+const PPUREGS_LAST  : u16 = 0x3FFF;
+const PPUREGS_SIZE  : u16 = 0x0008;
 
 
 pub struct CPUMem {
@@ -22,10 +25,10 @@ pub struct CPUMem {
     // 4018 - 401F : test mode stuff
     // 4020 - FFFF : cartridge
     ram : [u8; RAM_SIZE as usize],
-    cart : Component<Cartridge>,
-    ppu  : Component<PPU>,
-    apu  : Component<APU>,
-    controller : Component<Controller>,
+    cart : ComponentRc<Cartridge>,
+    ppu  : ComponentRc<PPU>,
+    apu  : ComponentRc<APU>,
+    controller : ComponentRc<Controller>,
 }
 
 fn split_bytes(val : u16) -> (u8, u8) {
@@ -41,14 +44,18 @@ impl Memory for CPUMem {
         match addr {
             RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize],
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
-            _ => panic!("couldn't map the addr to CPU memory"),
+            PPUREGS_FIRST...PPUREGS_LAST =>
+                self.ppu.borrow().reg_read((addr % PPUREGS_SIZE) as u8),
+            _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
         match addr {
             RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize] = val,
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
-            _ => panic!("couldn't map the addr to CPU memory"),
+            PPUREGS_FIRST...PPUREGS_LAST =>
+                self.ppu.borrow_mut().reg_write((addr % PPUREGS_SIZE) as u8, val),
+            _ => panic!("couldn't map addr 0x{:04x} to CPU memory", addr),
         }
     }
 }
@@ -138,7 +145,7 @@ impl CPU {
     pub fn step (&mut self) {
         let op = self.pc_getb();
 
-        println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
+        // println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
 
         self.add_cycles(CYCLE_TABLE[op as usize]);
         instructions::decode::INSTR[op as usize](self);
@@ -199,18 +206,18 @@ impl CPU {
         self.flags.n = result & 0x80 != 0;
     }
     pub fn test() -> CPU {
-        let cart = Component::new(Cartridge::test());
-        let ppu  = Component::new(PPU::new(cart.new_ref()));
-        let apu  = Component::new(APU::new());
-        let controller = Component::new(Controller::new());
+        let cart = ComponentRc::new(Cartridge::test());
+        let ppu  = ComponentRc::new(PPU::new(cart.new_ref()));
+        let apu  = ComponentRc::new(APU::new());
+        let controller = ComponentRc::new(Controller::new());
 
         CPU::new(cart, ppu, apu, controller)
     }
 
-    pub fn new(cart : Component<Cartridge>,
-               ppu  : Component<PPU>,
-               apu  : Component<APU>,
-               controller : Component<Controller> ) -> CPU {
+    pub fn new(cart : ComponentRc<Cartridge>,
+               ppu  : ComponentRc<PPU>,
+               apu  : ComponentRc<APU>,
+               controller : ComponentRc<Controller> ) -> CPU {
         CPU {
             a : 0,
             x : 0,

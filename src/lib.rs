@@ -24,12 +24,12 @@ pub fn run_emulator(cart : Cartridge) {
     let mut screen = Screen::new();
     let mut input = screen.emulator_input();
 
-    let cart  = Component::new(cart);
-    let ppu   = Component::new(PPU::new(cart.new_ref()));
-    let apu   = Component::new(APU::new());
-    let controller = Component::new(Controller::new());
+    let cart  = ComponentRc::new(cart);
+    let ppu   = ComponentRc::new(PPU::new(cart.new_ref()));
+    let apu   = ComponentRc::new(APU::new());
+    let controller = ComponentRc::new(Controller::new());
 
-    let cpu = CPU::new(
+    let mut cpu = CPU::new(
         cart.new_ref(), ppu.new_ref(), apu.new_ref(), controller.new_ref());
 
     // current version of rust-sdl2 requires that I use a
@@ -42,7 +42,9 @@ pub fn run_emulator(cart : Cartridge) {
     ppu.borrow().render(&mut picture);
     screen.update_and_show(&picture);
 
+    cpu.nmi();
     'running: loop {
+        cpu.step();
         for event in input.events() {
             match event {
                 EmulatorEvent::Exit => break 'running,
@@ -61,25 +63,25 @@ trait Memory {
     fn loadb(&self, addr : u16) -> u8;
 }
 
-pub struct Component<T> (
+pub struct ComponentRc<T> (
     Rc<RefCell<T>>
 );
 
-impl<T> Component<T> {
-    fn new(val : T) -> Component<T> {
-        Component (
+impl<T> ComponentRc<T> {
+    fn new(val : T) -> ComponentRc<T> {
+        ComponentRc (
             Rc::new(RefCell::new(val))
         )
     }
 
-    fn new_ref(&self) -> Component<T> {
-        Component (
+    fn new_ref(&self) -> ComponentRc<T> {
+        ComponentRc (
             Rc::clone(&self.0)
         )
     }
 }
 
-impl<T> std::ops::Deref for Component<T> {
+impl<T> std::ops::Deref for ComponentRc<T> {
     type Target = Rc<RefCell<T>>;
 
     fn deref(&self) -> &Self::Target {
