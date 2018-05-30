@@ -2,6 +2,9 @@ use ::sdl2::{ Sdl, VideoSubsystem, render, pixels, video };
 use self::pixels::PixelFormatEnum;
 use super::input::EmulatorInput;
 
+const WINDOW_WIDTH : u32 = 800;
+const WINDOW_HEIGHT : u32 = 800;
+
 const FORMAT : PixelFormatEnum = PixelFormatEnum::BGR24;
 const WIDTH : usize = 256;
 const HEIGHT : usize = 240;
@@ -27,7 +30,7 @@ impl Screen {
         let sdl_context = ::sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
 
-        let window = video_subsystem.window("NES", 400, 400)
+        let window = video_subsystem.window("NES", WINDOW_WIDTH, WINDOW_HEIGHT)
             .position_centered()
             .build()
             .unwrap();

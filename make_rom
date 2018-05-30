@@ -16,7 +16,6 @@ srcfile="tests/test.s"
 # cat $chrfile >> $romfile
 
 # 0b0110_0110
-# 0b0110_0110
 echo -n -e '\x66' >> $romfile
 echo -n -e '\x7f' >> $romfile
 echo -n -e '\xff' >> $romfile

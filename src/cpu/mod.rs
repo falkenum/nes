@@ -167,11 +167,18 @@ impl CPU {
         self.mem.loadb(STACK_BEGIN + self.sp as u16)
     }
 
+    // to be called at startup of the NES
+    pub fn reset(&mut self) {
+        let dest_high = self.mem.loadb(0xFFFD);
+        let dest_low = self.mem.loadb(0xFFFC);
+        self.pc = concat_bytes(dest_high, dest_low);
+    }
+
     pub fn nmi(&mut self) {
         // 7-clock interrupt sequence, same timing as BRK
         self.add_cycles(7);
 
-        let (ret_high, ret_low) = split_bytes(self.pc + 1);
+        let (ret_high, ret_low) = split_bytes(self.pc);
         self.push(ret_high);
         self.push(ret_low);
 

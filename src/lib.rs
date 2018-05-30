@@ -39,12 +39,18 @@ pub fn run_emulator(cart : Cartridge) {
     let picture_creator = screen.picture_creator();
     let mut picture = picture_creator.create_picture();
 
+    cpu.nmi();
+    for _ in 0..13 {
+        cpu.step();
+    }
+
+    // TODO setup vblank and stuff
     ppu.borrow().render(&mut picture);
     screen.update_and_show(&picture);
 
-    cpu.nmi();
+    // cpu.reset();
     'running: loop {
-        cpu.step();
+        // cpu.step();
         for event in input.events() {
             match event {
                 EmulatorEvent::Exit => break 'running,
