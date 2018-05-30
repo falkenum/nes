@@ -1,6 +1,7 @@
 use super::{ Memory, ComponentRc };
 
 pub struct Cartridge {
+    prgrom_size : u16,
     prgrom : Vec<u8>,
     chrrom : Vec<u8>,
     vram : [u8; VRAM_SIZE as usize],
@@ -13,6 +14,7 @@ impl Cartridge {
         let mut new_prgrom = Vec::new();
         new_prgrom.resize(0x8000, 0);
         Cartridge {
+            prgrom_size : new_prgrom.len() as u16,
             prgrom : new_prgrom,
             chrrom : Vec::new(),
             vram : [0; VRAM_SIZE as usize],
@@ -73,6 +75,7 @@ impl Cartridge {
             num_chrrom_banks, chrrom_size / 1024);
 
         Cartridge {
+            prgrom_size : new_prgrom.len() as u16,
             prgrom : new_prgrom,
             chrrom : new_chrrom,
             vram : [0; VRAM_SIZE as usize],
@@ -95,14 +98,14 @@ const VRAM_LAST : u16 = 0x3EFF;
  but it's easier to code.
 */
 
-
-// TODO right now I'm assuming it's NPRG256
+// TODO right now I'm assuming it's NROM256
 impl Memory for Cartridge {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
             CHR_FIRST...CHR_LAST => self.chrrom[addr as usize],
             VRAM_FIRST...VRAM_LAST => self.vram[(addr % VRAM_SIZE) as usize],
-            PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize],
+            PRG_FIRST...PRG_LAST => self.prgrom[((addr - PRG_FIRST) %
+                                                 self.prgrom_size) as usize],
             _ => panic!("invalid cartridge address"),
         }
     }
@@ -110,7 +113,8 @@ impl Memory for Cartridge {
         match addr {
             CHR_FIRST...CHR_LAST => self.chrrom[addr as usize] = val,
             VRAM_FIRST...VRAM_LAST => self.vram[(addr % VRAM_SIZE) as usize] = val,
-            PRG_FIRST...PRG_LAST => self.prgrom[(addr - PRG_FIRST) as usize] = val,
+            PRG_FIRST...PRG_LAST => self.prgrom[((addr - PRG_FIRST) %
+                                                self.prgrom_size) as usize] = val,
             _ => panic!("invalid cartridge address"),
         }
     }

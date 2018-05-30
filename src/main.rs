@@ -3,15 +3,14 @@ extern crate nes;
 // use nes::cpu::CPU;
 
 fn main() {
-    // let mut c = CPU::new();
-    // c.load_cartridge(Cartridge::from_ines_file(String::from("nestest.nes")));
 
-    // while c.get_pc() != 0 {
-    //     c.step();
-    // }
-    // println!("{:?}", c);
+    let args : Vec<String> = std::env::args().collect();
+    let filename = if args.len() == 2 {
+        args[1].clone()
+    }
+    else {
+        String::from("tests/test.nes")
+    };
 
-
-    nes::run_emulator(nes::cartridge::Cartridge::from_ines_file("tests/test.nes"));
-
+    nes::run_emulator(nes::cartridge::Cartridge::from_ines_file(&filename));
 }
