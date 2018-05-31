@@ -44,7 +44,6 @@ pub fn run_emulator(cart : Cartridge) {
         cpu.step();
     }
 
-    // TODO setup vblank and stuff
     ppu.borrow().render(&mut picture);
     screen.update_and_show(&picture);
 

@@ -152,58 +152,83 @@ impl PPU {
 
     pub fn render(&self, picture : &mut super::graphics::Picture) {
 
-        let mut pixeldata : [u8; SCREEN_SIZE] = fill_color(0, 0, 252);
+        let mut pixeldata : [u8; SCREEN_SIZE] = [0; SCREEN_SIZE];
 
-        // println!("palette ");
-        // println!("0x3F00: {:02x}", self.mem.loadb(0x3F00));
-        // println!("0x3F01: {:02x}", self.mem.loadb(0x3F01));
-        // println!("0x3F02: {:02x}", self.mem.loadb(0x3F02));
-        // println!("0x3F03: {:02x}", self.mem.loadb(0x3F03));
+        for scanline in 0..240 {
+            let nt_row = (scanline & 0b11111_000) >> 3;
+            let tile_row = scanline & 0b00000_111;
 
-        const BASE : u16 = 0x0000;
-        for i in 0..8 {
-            let pattern_low  = self.mem.loadb(BASE + i);
-            let pattern_high = self.mem.loadb(BASE + i + 8);
+            for nt_col in 0..32 {
+                let tile_num = self.mem.loadb(0x2000 + nt_col + 32*nt_row);
+                let tile_addr = (tile_num << 4) as u16;
+
+                let pattern_low  = self.mem.loadb(tile_addr + tile_row);
+                let pattern_high = self.mem.loadb(tile_addr + tile_row + 8);
+
+                // loop through pairs of numbers like (0, 7), (1, 6), (2, 5), etc
+                for (tile_col, shamt) in (0..8).rev().enumerate() {
+
+                    // low two bits of palette index, from pattern table
+                    let palette_low = ((pattern_low  >> shamt) & 0b1) |
+                                    (((pattern_high >> shamt) & 0b1) << 1);
+
+                    // let get_attr = |vram_addr : u16| -> u8 {
+
+                    //     // 10 bit nametable index (1024 bytes per nt)
+                    //     let nt_index = vram_addr & 0x3FF;
+                    //     let at_index = ((nt_index & 0b11100_00000) >> 4) |
+                    //     ((nt_index & 0b00000_11100) >> 2);
+
+                    //     // TODO assuming first nametable
+                    //     let at_base = 0x23C0;
+
+                    //     let at_val = self.mem.loadb(at_base + at_index);
+
+                    //     let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
+                    //     ((nt_index & 0b00000_00010) >> 1);
+
+                    //     match tile_attr_quadrant {
+                    //         // top left
+                    //         0 => (at_val & 0b00000011) << 2,
+                    //         // top right
+                    //         1 => (at_val & 0b00001100) << 0,
+                    //         // bottom left
+                    //         2 => (at_val & 0b00110000) >> 2,
+                    //         // bottom right
+                    //         4 => (at_val & 0b11000000) >> 4,
+                    //         _ => panic!("messed up somewhere")
+                    //     }
+                    // };
 
 
-            // loop through pairs of numbers like (0, 7), (1, 6), (2, 5), etc
-            for (j, k) in (0..8).rev().enumerate() {
+                    // let palette_high = get_attr(0x2000);
+                    let palette_high = 0;
 
-                // low two bits of palette index, from pattern table
-                let palette_low = ((pattern_low  >> k) & 0b1) |
-                                 (((pattern_high >> k) & 0b1) << 1);
+                    let palette_i = palette_high | palette_low;
 
-                // from attr table
-                let palette_high = (self.mem.loadb(0x23C0) & 0b00000011) << 2;
+                    debug_assert!(palette_i < 16,
+                                "invalid palette_i {:b}", palette_i);
 
+                    let color =
+                        self.mem.loadb(0x3F00 + palette_i as u16) as usize;
 
-                let palette_i = palette_high | palette_low;
+                    debug_assert!(color < 64, "invalid color {:x}", color);
 
-                // println!("high: {:b}, low: {:b}", palette_high, palette_low);
+                    let color_bgr = PALETTE_BGR[color];
 
-                if palette_i >= 16 {
-                    panic!("invalid palette_i {:b}", palette_i);
+                    let tile_row = tile_row as usize;
+                    let tile_col = tile_col as usize;
+                    let nt_row = nt_row as usize;
+                    let nt_col = nt_col as usize;
 
+                    let x = nt_row*256*3*8 + nt_col*8*3 +
+                            tile_row*256*3 + tile_col*3;
+
+                    pixeldata[x + 0] = color_bgr.0;
+                    pixeldata[x + 1] = color_bgr.1;
+                    pixeldata[x + 2] = color_bgr.2;
                 }
-                // assert!(palette_i < 16);
-
-                let color = self.mem.loadb(0x3F00 + palette_i as u16) as usize;
-                assert!(color < 64);
-
-                let color_bgr = PALETTE_BGR[color];
-
-                let j = j as u16;
-                let x = (i*256*3 + j*3) as usize;
-
-                // print!("({:x};{:02x}: {:03}, {:03}, {:03}) |",
-                //        palette_i, color, color_bgr.0, color_bgr.1, color_bgr.2);
-
-                pixeldata[x + 0] = color_bgr.0;
-                pixeldata[x + 1] = color_bgr.1;
-                pixeldata[x + 2] = color_bgr.2;
             }
-
-            // println!("");
         }
 
         picture.update(&pixeldata);
@@ -261,6 +286,7 @@ mod tests {
         p.reg_write(DATA, 0xFF);
 
         assert_eq!(p.mem.loadb(0x3F00), 0xFF);
+        assert_eq!(p.address, 0x3F01);
     }
 
 }
