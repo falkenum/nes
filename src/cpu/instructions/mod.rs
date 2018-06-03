@@ -9,8 +9,8 @@ fn from_bcd(x : u8) -> u8 { (x & 0x0F) + ((x & 0xF0) >> 4) * 10 }
 fn to_bcd(x : u8) -> u8 { ((x / 10) << 4) + (x % 10) }
 
 // describes the possible types of arguments for instructions
-#[derive(Clone, Copy)]
-enum InstrArg {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum InstrArg {
     Implied,
     Immediate(u8),
     Address(u16),

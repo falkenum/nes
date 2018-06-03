@@ -2,6 +2,8 @@
 mod tests;
 mod instructions;
 
+use self::instructions::decode::Op;
+use self::instructions::InstrArg;
 use cartridge::Cartridge;
 use super::{ ComponentRc, PPU, APU, Controller };
 use Memory;
@@ -100,7 +102,9 @@ pub struct CPU {
     pc : u16,
     flags : CPUFlags,
     mem : CPUMem,
-    cycles : usize,
+    cycle_count : u8,
+    next_op : Op,
+    do_nmi : bool,
 }
 
 use std::fmt;
@@ -117,45 +121,77 @@ impl fmt::Debug for CPU {
     }
 }
 
-// The number of cycles that each machine operation takes. Indexed by opcode number.
-//
-// This is copied from FCEU.
-static CYCLE_TABLE: [usize; 256] = [
-    /*0x00*/ 7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
-    /*0x10*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-    /*0x20*/ 6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
-    /*0x30*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-    /*0x40*/ 6,6,2,8,3,3,5,5,3,2,2,2,3,4,6,6,
-    /*0x50*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-    /*0x60*/ 6,6,2,8,3,3,5,5,4,2,2,2,5,4,6,6,
-    /*0x70*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-    /*0x80*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
-    /*0x90*/ 2,6,2,6,4,4,4,4,2,5,2,5,5,5,5,5,
-    /*0xA0*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
-    /*0xB0*/ 2,5,2,5,4,4,4,4,2,4,2,4,4,4,4,4,
-    /*0xC0*/ 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
-    /*0xD0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-    /*0xE0*/ 2,6,3,8,3,3,5,5,2,2,2,2,4,4,6,6,
-    /*0xF0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
-];
-
 const STACK_BEGIN : u16 = 0x100;
 
 impl CPU {
+    // finishes current instruction,
+    // or executes the next one if there's nothing
     pub fn step (&mut self) {
-        let op = self.pc_getb();
+
+        // if there's nothing queued, then get something
+        if self.cycle_count == 0 {
+            if self.do_nmi {
+                self.next_op = Op {
+                    instr : CPU::nmi,
+                    arg : InstrArg::Implied,
+                };
+
+                self.do_nmi = false;
+            }
+
+            else {
+                let decode_result = instructions::decode::fetch_and_decode(self);
+                self.next_op = decode_result.op;
+            }
+        }
+        else {
+            self.cycle_count = 0;
+        }
+
+        let arg = self.next_op.arg;
+        (self.next_op.instr)(self, arg);
 
         // println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
+    }
 
-        self.add_cycles(CYCLE_TABLE[op as usize]);
-        instructions::decode::INSTR[op as usize](self);
+    // moves forward one clock cycle
+    pub fn tick(&mut self) {
+
+        // if there's no cycles left, then we need to queue (sort of) the
+        // the next instruction or nmi
+        if self.cycle_count == 0 {
+            // check for interrupt/vblank
+            if self.do_nmi {
+                // 7-clock interrupt sequence, same timing as BRK
+                let nmi_cycles = 7;
+
+                self.next_op = Op {
+                    instr : CPU::nmi,
+                    arg : InstrArg::Implied,
+                };
+
+                self.do_nmi = false;
+                self.cycle_count = nmi_cycles;
+            }
+
+            else {
+                let decode_result = instructions::decode::fetch_and_decode(self);
+                self.next_op = decode_result.op;
+                self.cycle_count = decode_result.num_cycles;
+            }
+        }
+        // if there's one cycle left, then we need to execute
+        // the instruction that is queued
+        else if self.cycle_count == 1 {
+            let arg = self.next_op.arg;
+            (self.next_op.instr)(self, arg);
+        }
+
+        // do the tick
+        self.cycle_count -= 1;
     }
 
     pub fn get_pc (&self) -> u16 { self.pc }
-
-    fn add_cycles(&mut self, c : usize) { self.cycles += c; }
-    fn reset_cycles(&mut self) { self.cycles = 0; }
-    fn get_cycles(&self) -> usize { self.cycles }
 
     fn push(&mut self, val : u8) {
         self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
@@ -174,9 +210,13 @@ impl CPU {
         self.pc = concat_bytes(dest_high, dest_low);
     }
 
-    pub fn nmi(&mut self) {
-        // 7-clock interrupt sequence, same timing as BRK
-        self.add_cycles(7);
+    pub fn send_nmi(&mut self) {
+        debug_assert_eq!(self.do_nmi, false);
+        self.do_nmi = true;
+    }
+
+    fn nmi(&mut self, arg : InstrArg) {
+        debug_assert_eq!(arg, InstrArg::Implied);
 
         let (ret_high, ret_low) = split_bytes(self.pc);
         self.push(ret_high);
@@ -212,6 +252,11 @@ impl CPU {
     fn set_n(&mut self, result : u8) {
         self.flags.n = result & 0x80 != 0;
     }
+
+    fn unimpl(&mut self, _ : InstrArg) {
+        panic!("called unimplemented instruction");
+    }
+
     pub fn test() -> CPU {
         let cart = ComponentRc::new(Cartridge::test());
         let ppu  = ComponentRc::new(PPU::new(cart.new_ref()));
@@ -225,6 +270,7 @@ impl CPU {
                ppu  : ComponentRc<PPU>,
                apu  : ComponentRc<APU>,
                controller : ComponentRc<Controller> ) -> CPU {
+
         CPU {
             a : 0,
             x : 0,
@@ -246,7 +292,12 @@ impl CPU {
                 apu : apu,
                 controller : controller,
             },
-            cycles : 0,
+            cycle_count : 0,
+            next_op : Op {
+                instr : CPU::unimpl,
+                arg : InstrArg::Implied,
+            },
+            do_nmi : false,
         }
     }
 }

@@ -19,7 +19,8 @@ fn interrupt() {
     c.mem.storeb(0xFFFA, 0xAB);
     c.mem.storeb(0xFFFB, 0xCD);
     c.pc = 0x8001;
-    c.nmi();
+    c.send_nmi();
+    c.step();
     assert_eq!(c.mem.loadb(0x01FF), 0x80);
     assert_eq!(c.mem.loadb(0x01FE), 0x01);
     assert_eq!(c.mem.loadb(0x01FD), 0b00100000);

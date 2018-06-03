@@ -3,13 +3,15 @@
     #[test]
     fn cycles() {
         let mut c = CPU::test();
-        assert_eq!(c.get_cycles(), 0);
+        assert_eq!(c.cycle_count, 0);
 
         // simple instruction
         c.mem.storeb(0x8000, 0xA9);
         c.mem.storeb(0x8001, 0x55);
+        c.tick();
+        assert_eq!(c.cycle_count, 1);
         c.step();
-        assert_eq!(c.get_cycles(), 2);
+        assert_eq!(c.cycle_count, 0);
 
         // no page crossing on lda indirect, y: 5 cycles
         c.mem.storeb(0x00FD, 0xBB);
@@ -17,9 +19,10 @@
         c.y = 0xF0;
         c.mem.storeb(0x8002, 0xB1);
         c.mem.storeb(0x8003, 0xF0);
+        c.tick();
+        assert_eq!(c.cycle_count, 4);
         c.step();
         assert_eq!(c.a, 0xBB);
-        assert_eq!(c.get_cycles(), 7);
 
         // page crossing on lda indirect, y: 5+1 cycles
         c.mem.storeb(0x00F0, 0xFF);
@@ -28,9 +31,10 @@
         c.y = 0x01;
         c.mem.storeb(0x8004, 0xB1);
         c.mem.storeb(0x8005, 0xF0);
+        c.tick();
+        assert_eq!(c.cycle_count, 5);
         c.step();
         assert_eq!(c.a, 0x07);
-        assert_eq!(c.get_cycles(), 13);
 
         // page crossing on lda absolute, x: 4+1 cycles
         c.mem.storeb(0x0200, 0x08);
@@ -38,9 +42,10 @@
         c.mem.storeb(0x8006, 0xBD);
         c.mem.storeb(0x8007, 0xFF);
         c.mem.storeb(0x8008, 0x01);
+        c.tick();
+        assert_eq!(c.cycle_count, 4);
         c.step();
         assert_eq!(c.a, 0x08);
-        assert_eq!(c.get_cycles(), 18);
 
         // page crossing on lda absolute, y: 4+1 cycles
         c.mem.storeb(0x0200, 0x09);
@@ -48,9 +53,10 @@
         c.mem.storeb(0x8009, 0xB9);
         c.mem.storeb(0x800A, 0xFF);
         c.mem.storeb(0x800B, 0x01);
+        c.tick();
+        assert_eq!(c.cycle_count, 4);
         c.step();
         assert_eq!(c.a, 0x09);
-        assert_eq!(c.get_cycles(), 23);
     }
 
     #[test]

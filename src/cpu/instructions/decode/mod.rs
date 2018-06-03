@@ -1,30 +1,123 @@
-use super::InstrArg::{ Implied, Immediate, Address };
-use super::CPU;
-use super::Memory;
+use super::{ InstrArg, CPU, Memory };
 
 #[cfg(test)]
 mod tests;
 
-// addressing modes
+#[derive(Copy, Clone)]
+pub enum AddrMode {
+    Implied,
+    Immediate,
+    Relative,
+    Absolute,
+    AbsoluteX,
+    AbsoluteY,
+    ZeroPage,
+    ZeroPageX,
+    ZeroPageY,
+    Indirect,
+    IndirectX,
+    IndirectY,
+
+}
+
+pub struct DecodeResult {
+    pub num_cycles : u8,
+    pub op : Op,
+}
+
+pub struct Op {
+    pub instr : fn(&mut CPU, InstrArg),
+    pub arg : InstrArg,
+}
+
+// this isn't a method because I didn't want it to be usable outside of the cpu mod
+pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
+    let op = cpu.pc_getb();
+
+    let (mode, instr) = constants::OPS[op as usize];
+
+    let mut num_cycles = constants::CYCLE_TABLE[op as usize];
+
+    let arg = match mode {
+        AddrMode::Implied => InstrArg::Implied,
+        AddrMode::Immediate => InstrArg::Immediate(cpu.pc_getb()),
+        AddrMode::Relative => {
+            let b = cpu.pc_getb();
+            InstrArg::Address(cpu.relative(b))
+        },
+        AddrMode::Absolute => InstrArg::Address(cpu.pc_getdb()),
+        AddrMode::AbsoluteX => {
+            let addr = cpu.pc_getdb();
+            // if there is a page crossing, add one cycle
+            if ((addr % 0x0100) + cpu.x as u16) > 0x00FF {
+                num_cycles += 1;
+            }
+            InstrArg::Address(cpu.absolute_x(addr))
+        },
+        AddrMode::AbsoluteY => {
+            let addr = cpu.pc_getdb();
+            // if there is a page crossing, add one cycle
+            if ((addr % 0x0100) + cpu.y as u16) > 0x00FF {
+                num_cycles += 1;
+            }
+            InstrArg::Address(cpu.absolute_y(addr))
+        },
+        AddrMode::ZeroPage => {
+            let b = cpu.pc_getb();
+            InstrArg::Address(cpu.zero_page(b))
+        },
+        AddrMode::ZeroPageX => {
+            let b = cpu.pc_getb();
+            InstrArg::Address(cpu.zero_page_x(b))
+        },
+        AddrMode::ZeroPageY => {
+            let b = cpu.pc_getb();
+            InstrArg::Address(cpu.zero_page_y(b))
+        },
+        AddrMode::Indirect => {
+            let addr = cpu.pc_getdb();
+            InstrArg::Address(cpu.indirect(addr))
+        },
+        AddrMode::IndirectX => {
+            let b = cpu.pc_getb();
+            InstrArg::Address(cpu.indirect_x(b))
+        },
+        AddrMode::IndirectY => {
+            let b = cpu.pc_getb();
+            // if there is a page crossing, add one cycle
+            if ((cpu.indirect(b as u16) % 0x0100) + cpu.y as u16) > 0x00FF {
+                num_cycles += 1;
+            }
+            let addr = cpu.indirect_y(b);
+            InstrArg::Address(addr)
+        },
+    };
+    // TODO test for cycles being added correctly
+
+    DecodeResult {
+        num_cycles : num_cycles,
+        op : Op {
+            instr : instr,
+            arg : arg,
+        }
+    }
+}
+
 impl CPU {
-    fn relative    (&self, val : u8)  -> u16 {
+
+    fn relative(&self, val : u8) -> u16 {
         // sign extend val and add to pc
         ((val as u16) | (0xFF00 * ((val >> 7) as u16))).wrapping_add(self.pc)
     }
-    fn absolute_x  (&mut self, val : u16) -> u16 {
-        // if there is a page crossing, add one cycle
-        if ((val % 0x0100) + self.x as u16) > 0x00FF {
-            self.add_cycles(1);
-        }
+
+    fn absolute_x  (&self, val : u16) -> u16 {
         val.wrapping_add(self.x as u16)
     }
-    fn absolute_y  (&mut self, val : u16) -> u16 {
-        // if there is a page crossing, add one cycle
-        if ((val % 0x0100) + self.y as u16) > 0x00FF {
-            self.add_cycles(1);
-        }
+
+    fn absolute_y  (&self, val : u16) -> u16 {
         val.wrapping_add(self.y as u16)
     }
+
     fn zero_page   (&self, val : u8)  -> u16 { val as u16 }
     fn zero_page_x (&self, val : u8)  -> u16 { val.wrapping_add(self.x) as u16 }
     fn zero_page_y (&self, val : u8)  -> u16 { val.wrapping_add(self.y) as u16 }
@@ -32,7 +125,7 @@ impl CPU {
         let a = val.wrapping_add(self.x);
         self.indirect(a as u16)
     }
-    fn indirect_y  (&mut self, val : u8)  -> u16 {
+    fn indirect_y  (&self, val : u8)  -> u16 {
         let val = self.indirect(val as u16);
         self.absolute_y(val)
     }
@@ -50,335 +143,292 @@ impl CPU {
     }
 }
 
-// these are a few macros to help with the implementation of of the instruction
-// decoding. The opcode is used with a const lookup table of closures that
-// execute the instruction. I implemented instruction handling in this way
-// in order to have constant-time decoding of instructions.
 
-macro_rules! unimpl {
-    () => {  &|_ : &mut CPU| panic!("called unimplemented instruction"); };
+mod constants {
+    const NUM_OPCODES : usize = 256;
+    use super::AddrMode;
+    use super::AddrMode::*;
+    use super::CPU;
+    use super::InstrArg;
+
+    // The number of cycles that each machine operation takes.
+    // Indexed by opcode number.
+    // This is copied from FCEU.
+    pub static CYCLE_TABLE : [u8; 256] = [
+        /*0x00*/ 7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
+        /*0x10*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+        /*0x20*/ 6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
+        /*0x30*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+        /*0x40*/ 6,6,2,8,3,3,5,5,3,2,2,2,3,4,6,6,
+        /*0x50*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+        /*0x60*/ 6,6,2,8,3,3,5,5,4,2,2,2,5,4,6,6,
+        /*0x70*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+        /*0x80*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+        /*0x90*/ 2,6,2,6,4,4,4,4,2,5,2,5,5,5,5,5,
+        /*0xA0*/ 2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+        /*0xB0*/ 2,5,2,5,4,4,4,4,2,4,2,4,4,4,4,4,
+        /*0xC0*/ 2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+        /*0xD0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+        /*0xE0*/ 2,6,3,8,3,3,5,5,2,2,2,2,4,4,6,6,
+        /*0xF0*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
+    ];
+
+    pub static OPS : [(AddrMode, fn(&mut CPU, InstrArg)); NUM_OPCODES] = [
+        /* 0x00 */ (Implied,   CPU::brk    ),
+        /* 0x01 */ (IndirectX, CPU::ora    ),
+        /* 0x02 */ (Implied,   CPU::unimpl ),
+        /* 0x03 */ (Implied,   CPU::unimpl ),
+        /* 0x04 */ (ZeroPage,  CPU::nop    ),
+        /* 0x05 */ (ZeroPage,  CPU::ora    ),
+        /* 0x06 */ (ZeroPage,  CPU::asl    ),
+        /* 0x07 */ (Implied,   CPU::unimpl ),
+        /* 0x08 */ (Implied,   CPU::php    ),
+        /* 0x09 */ (Immediate, CPU::ora    ),
+        /* 0x0A */ (Implied,   CPU::asl    ),
+        /* 0x0B */ (Implied,   CPU::unimpl ),
+        /* 0x0C */ (Absolute,  CPU::nop    ),
+        /* 0x0D */ (Absolute,  CPU::ora    ),
+        /* 0x0E */ (Absolute,  CPU::asl    ),
+        /* 0x0F */ (Implied,   CPU::unimpl ),
+        /* 0x10 */ (Relative,  CPU::bpl    ),
+        /* 0x11 */ (IndirectY, CPU::ora    ),
+        /* 0x12 */ (Implied,   CPU::unimpl ),
+        /* 0x13 */ (Implied,   CPU::unimpl ),
+        /* 0x14 */ (ZeroPageX, CPU::nop    ),
+        /* 0x15 */ (ZeroPageX, CPU::ora    ),
+        /* 0x16 */ (ZeroPageX, CPU::asl    ),
+        /* 0x17 */ (Implied,   CPU::unimpl ),
+        /* 0x18 */ (Implied,   CPU::clc    ),
+        /* 0x19 */ (AbsoluteY, CPU::ora    ),
+        /* 0x1A */ (Implied,   CPU::nop    ),
+        /* 0x1B */ (Implied,   CPU::unimpl ),
+        /* 0x1C */ (AbsoluteX, CPU::nop    ),
+        /* 0x1D */ (AbsoluteX, CPU::ora    ),
+        /* 0x1E */ (AbsoluteX, CPU::asl    ),
+        /* 0x1F */ (Implied,   CPU::unimpl ),
+        /* 0x20 */ (Absolute,  CPU::jsr    ),
+        /* 0x21 */ (IndirectX, CPU::and    ),
+        /* 0x22 */ (Implied,   CPU::unimpl ),
+        /* 0x23 */ (Implied,   CPU::unimpl ),
+        /* 0x24 */ (ZeroPage,  CPU::bit    ),
+        /* 0x25 */ (ZeroPage,  CPU::and    ),
+        /* 0x26 */ (ZeroPage,  CPU::rol    ),
+        /* 0x27 */ (Implied,   CPU::unimpl ),
+        /* 0x28 */ (Implied,   CPU::plp    ),
+        /* 0x29 */ (Immediate, CPU::and    ),
+        /* 0x2A */ (Implied,   CPU::rol    ),
+        /* 0x2B */ (Implied,   CPU::unimpl ),
+        /* 0x2C */ (Absolute,  CPU::bit    ),
+        /* 0x2D */ (Absolute,  CPU::and    ),
+        /* 0x2E */ (Absolute,  CPU::rol    ),
+        /* 0x2F */ (Implied,   CPU::unimpl ),
+        /* 0x30 */ (Relative,  CPU::bmi    ),
+        /* 0x31 */ (IndirectY, CPU::and    ),
+        /* 0x32 */ (Implied,   CPU::unimpl ),
+        /* 0x33 */ (Implied,   CPU::unimpl ),
+        /* 0x34 */ (ZeroPageX, CPU::nop    ),
+        /* 0x35 */ (ZeroPageX, CPU::and    ),
+        /* 0x36 */ (ZeroPageX, CPU::rol    ),
+        /* 0x37 */ (Implied,   CPU::unimpl ),
+        /* 0x38 */ (Implied,   CPU::sec    ),
+        /* 0x39 */ (AbsoluteY, CPU::and    ),
+        /* 0x3A */ (Implied,   CPU::nop    ),
+        /* 0x3B */ (Implied,   CPU::unimpl ),
+        /* 0x3C */ (AbsoluteX, CPU::nop    ),
+        /* 0x3D */ (AbsoluteX, CPU::and    ),
+        /* 0x3E */ (AbsoluteX, CPU::rol    ),
+        /* 0x3F */ (Implied,   CPU::unimpl ),
+        /* 0x40 */ (Implied,   CPU::rti    ),
+        /* 0x41 */ (IndirectX, CPU::eor    ),
+        /* 0x42 */ (Implied,   CPU::unimpl ),
+        /* 0x43 */ (Implied,   CPU::unimpl ),
+        /* 0x44 */ (ZeroPage,  CPU::nop    ),
+        /* 0x45 */ (ZeroPage,  CPU::eor    ),
+        /* 0x46 */ (ZeroPage,  CPU::lsr    ),
+        /* 0x47 */ (Implied,   CPU::unimpl ),
+        /* 0x48 */ (Implied,   CPU::pha    ),
+        /* 0x49 */ (Immediate, CPU::eor    ),
+        /* 0x4A */ (Implied,   CPU::lsr    ),
+        /* 0x4B */ (Implied,   CPU::unimpl ),
+        /* 0x4C */ (Absolute,  CPU::jmp    ),
+        /* 0x4D */ (Absolute,  CPU::eor    ),
+        /* 0x4E */ (Absolute,  CPU::lsr    ),
+        /* 0x4F */ (Implied,   CPU::unimpl ),
+        /* 0x50 */ (Relative,  CPU::bvc    ),
+        /* 0x51 */ (IndirectY, CPU::eor    ),
+        /* 0x52 */ (Implied,   CPU::unimpl ),
+        /* 0x53 */ (Implied,   CPU::unimpl ),
+        /* 0x54 */ (ZeroPageX, CPU::nop    ),
+        /* 0x55 */ (ZeroPageX, CPU::eor    ),
+        /* 0x56 */ (ZeroPageX, CPU::lsr    ),
+        /* 0x57 */ (Implied,   CPU::unimpl ),
+        /* 0x58 */ (Implied,   CPU::cli    ),
+        /* 0x59 */ (AbsoluteY, CPU::eor    ),
+        /* 0x5A */ (Implied,   CPU::nop    ),
+        /* 0x5B */ (Implied,   CPU::unimpl ),
+        /* 0x5C */ (AbsoluteX, CPU::nop    ),
+        /* 0x5D */ (AbsoluteX, CPU::eor    ),
+        /* 0x5E */ (AbsoluteX, CPU::lsr    ),
+        /* 0x5F */ (Implied,   CPU::unimpl ),
+        /* 0x60 */ (Implied,   CPU::rts    ),
+        /* 0x61 */ (IndirectX, CPU::adc    ),
+        /* 0x62 */ (Implied,   CPU::unimpl ),
+        /* 0x63 */ (Implied,   CPU::unimpl ),
+        /* 0x64 */ (ZeroPage,  CPU::nop    ),
+        /* 0x65 */ (ZeroPage,  CPU::adc    ),
+        /* 0x66 */ (ZeroPage,  CPU::ror    ),
+        /* 0x67 */ (Implied,   CPU::unimpl ),
+        /* 0x68 */ (Implied,   CPU::pla    ),
+        /* 0x69 */ (Immediate, CPU::adc    ),
+        /* 0x6A */ (Implied,   CPU::ror    ),
+        /* 0x6B */ (Implied,   CPU::unimpl ),
+        /* 0x6C */ (Indirect,  CPU::jmp    ),
+        /* 0x6D */ (Absolute,  CPU::adc    ),
+        /* 0x6E */ (Absolute,  CPU::ror    ),
+        /* 0x6F */ (Implied,   CPU::unimpl ),
+        /* 0x70 */ (Relative,  CPU::bvs    ),
+        /* 0x71 */ (ZeroPageY, CPU::adc    ),
+        /* 0x72 */ (Implied,   CPU::unimpl ),
+        /* 0x73 */ (Implied,   CPU::unimpl ),
+        /* 0x74 */ (ZeroPageX, CPU::nop    ),
+        /* 0x75 */ (ZeroPageX, CPU::adc    ),
+        /* 0x76 */ (ZeroPageX, CPU::ror    ),
+        /* 0x77 */ (Implied,   CPU::unimpl ),
+        /* 0x78 */ (Implied,   CPU::sei    ),
+        /* 0x79 */ (AbsoluteY, CPU::adc    ),
+        /* 0x7A */ (Implied,   CPU::nop    ),
+        /* 0x7B */ (Implied,   CPU::unimpl ),
+        /* 0x7C */ (AbsoluteX, CPU::nop    ),
+        /* 0x7D */ (AbsoluteX, CPU::adc    ),
+        /* 0x7E */ (AbsoluteX, CPU::ror    ),
+        /* 0x7F */ (Implied,   CPU::unimpl ),
+        /* 0x80 */ (Immediate, CPU::nop    ),
+        /* 0x81 */ (IndirectX, CPU::sta    ),
+        /* 0x82 */ (Implied,   CPU::unimpl ),
+        /* 0x83 */ (Implied,   CPU::unimpl ),
+        /* 0x84 */ (ZeroPage,  CPU::sty    ),
+        /* 0x85 */ (ZeroPage,  CPU::sta    ),
+        /* 0x86 */ (ZeroPage,  CPU::stx    ),
+        /* 0x87 */ (Implied,   CPU::unimpl ),
+        /* 0x88 */ (Implied,   CPU::dey    ),
+        /* 0x89 */ (Implied,   CPU::unimpl ),
+        /* 0x8A */ (Implied,   CPU::txa    ),
+        /* 0x8B */ (Implied,   CPU::unimpl ),
+        /* 0x8C */ (Absolute,  CPU::sty    ),
+        /* 0x8D */ (Absolute,  CPU::sta    ),
+        /* 0x8E */ (Absolute,  CPU::stx    ),
+        /* 0x8F */ (Implied,   CPU::unimpl ),
+        /* 0x90 */ (Relative,  CPU::bcc    ),
+        /* 0x91 */ (IndirectY, CPU::sta    ),
+        /* 0x92 */ (Implied,   CPU::unimpl ),
+        /* 0x93 */ (Implied,   CPU::unimpl ),
+        /* 0x94 */ (ZeroPageX, CPU::sty    ),
+        /* 0x95 */ (ZeroPageX, CPU::sta    ),
+        /* 0x96 */ (ZeroPageY, CPU::stx    ),
+        /* 0x97 */ (Implied,   CPU::unimpl ),
+        /* 0x98 */ (Implied,   CPU::tya    ),
+        /* 0x99 */ (AbsoluteY, CPU::sta    ),
+        /* 0x9A */ (Implied,   CPU::txs    ),
+        /* 0x9B */ (Implied,   CPU::unimpl ),
+        /* 0x9C */ (Implied,   CPU::unimpl ),
+        /* 0x9D */ (AbsoluteX, CPU::sta    ),
+        /* 0x9E */ (Implied,   CPU::unimpl ),
+        /* 0x9F */ (Implied,   CPU::unimpl ),
+        /* 0xA0 */ (Immediate, CPU::ldy    ),
+        /* 0xA1 */ (IndirectX, CPU::lda    ),
+        /* 0xA2 */ (Immediate, CPU::ldx    ),
+        /* 0xA3 */ (IndirectX, CPU::lax    ),
+        /* 0xA4 */ (ZeroPage,  CPU::ldy    ),
+        /* 0xA5 */ (ZeroPage,  CPU::lda    ),
+        /* 0xA6 */ (ZeroPage,  CPU::ldx    ),
+        /* 0xA7 */ (ZeroPage,  CPU::lax    ),
+        /* 0xA8 */ (Implied,   CPU::tay    ),
+        /* 0xA9 */ (Immediate, CPU::lda    ),
+        /* 0xAA */ (Implied,   CPU::tax    ),
+        /* 0xAB */ (Implied,   CPU::unimpl ),
+        /* 0xAC */ (Absolute,  CPU::ldy    ),
+        /* 0xAD */ (Absolute,  CPU::lda    ),
+        /* 0xAE */ (Absolute,  CPU::ldx    ),
+        /* 0xAF */ (Absolute,  CPU::lax    ),
+        /* 0xB0 */ (Relative,  CPU:: bcs   ),
+        /* 0xB1 */ (IndirectY, CPU::lda    ),
+        /* 0xB2 */ (Implied,   CPU::unimpl ),
+        /* 0xB3 */ (ZeroPageY, CPU::lax    ),
+        /* 0xB4 */ (ZeroPageX, CPU::ldy    ),
+        /* 0xB5 */ (ZeroPageX, CPU::lda    ),
+        /* 0xB6 */ (ZeroPageY, CPU::ldx    ),
+        /* 0xB7 */ (ZeroPageY, CPU::lax    ),
+        /* 0xB8 */ (Implied,   CPU::clv    ),
+        /* 0xB9 */ (AbsoluteY, CPU::lda    ),
+        /* 0xBA */ (Implied,   CPU::tsx    ),
+        /* 0xBB */ (Implied,   CPU::unimpl ),
+        /* 0xBC */ (AbsoluteX, CPU::ldy    ),
+        /* 0xBD */ (AbsoluteX, CPU::lda    ),
+        /* 0xBE */ (AbsoluteY, CPU::ldx    ),
+        /* 0xBF */ (AbsoluteY, CPU::lax    ),
+        /* 0xC0 */ (Immediate, CPU::cpy    ),
+        /* 0xC1 */ (IndirectX, CPU::cmp    ),
+        /* 0xC2 */ (Implied,   CPU::unimpl ),
+        /* 0xC3 */ (Implied,   CPU::unimpl ),
+        /* 0xC4 */ (ZeroPage,  CPU::cpy    ),
+        /* 0xC5 */ (ZeroPage,  CPU::cmp    ),
+        /* 0xC6 */ (ZeroPage,  CPU::dec    ),
+        /* 0xC7 */ (Implied,   CPU::unimpl ),
+        /* 0xC8 */ (Implied,   CPU::iny    ),
+        /* 0xC9 */ (Immediate, CPU::cmp    ),
+        /* 0xCA */ (Implied,   CPU::dex    ),
+        /* 0xCB */ (Implied,   CPU::unimpl ),
+        /* 0xCC */ (Absolute,  CPU::cpy    ),
+        /* 0xCD */ (Absolute,  CPU::cmp    ),
+        /* 0xCE */ (Absolute,  CPU::dec    ),
+        /* 0xCF */ (Implied,   CPU::unimpl ),
+        /* 0xD0 */ (Relative,  CPU::bne    ),
+        /* 0xD1 */ (IndirectY, CPU::cmp    ),
+        /* 0xD2 */ (Implied,   CPU::unimpl ),
+        /* 0xD3 */ (Implied,   CPU::unimpl ),
+        /* 0xD4 */ (ZeroPageX, CPU::nop    ),
+        /* 0xD5 */ (ZeroPageX, CPU::cmp    ),
+        /* 0xD6 */ (ZeroPageX, CPU::dec    ),
+        /* 0xD7 */ (Implied,   CPU::unimpl ),
+        /* 0xD8 */ (Implied,   CPU::cld    ),
+        /* 0xD9 */ (AbsoluteY, CPU::cmp    ),
+        /* 0xDA */ (Implied,   CPU::nop    ),
+        /* 0xDB */ (Implied,   CPU::unimpl ),
+        /* 0xDC */ (AbsoluteX, CPU::nop    ),
+        /* 0xDD */ (AbsoluteX, CPU::cmp    ),
+        /* 0xDE */ (AbsoluteX, CPU::dec    ),
+        /* 0xDF */ (Implied,   CPU::unimpl ),
+        /* 0xE0 */ (Immediate, CPU::cpx    ),
+        /* 0xE1 */ (IndirectX, CPU::sbc    ),
+        /* 0xE2 */ (Implied,   CPU::unimpl ),
+        /* 0xE3 */ (Implied,   CPU::unimpl ),
+        /* 0xE4 */ (ZeroPage,  CPU::cpx    ),
+        /* 0xE5 */ (ZeroPage,  CPU::sbc    ),
+        /* 0xE6 */ (ZeroPage,  CPU::inc    ),
+        /* 0xE7 */ (Implied,   CPU::unimpl ),
+        /* 0xE8 */ (Implied,   CPU::inx    ),
+        /* 0xE9 */ (Immediate, CPU::sbc    ),
+        /* 0xEA */ (Implied,   CPU::nop    ),
+        /* 0xEB */ (Implied,   CPU::unimpl ),
+        /* 0xEC */ (Absolute,  CPU::cpx    ),
+        /* 0xED */ (Absolute,  CPU::sbc    ),
+        /* 0xEE */ (Absolute,  CPU::inc    ),
+        /* 0xEF */ (Implied,   CPU::unimpl ),
+        /* 0xF0 */ (Relative,  CPU::beq    ),
+        /* 0xF1 */ (IndirectY, CPU::sbc    ),
+        /* 0xF2 */ (Implied,   CPU::unimpl ),
+        /* 0xF3 */ (Implied,   CPU::unimpl ),
+        /* 0xF4 */ (ZeroPageX, CPU::nop    ),
+        /* 0xF5 */ (ZeroPageX, CPU::sbc    ),
+        /* 0xF6 */ (ZeroPageX, CPU::inc    ),
+        /* 0xF7 */ (Implied,   CPU::unimpl ),
+        /* 0xF8 */ (Implied,   CPU::sed    ),
+        /* 0xF9 */ (AbsoluteY, CPU::sbc    ),
+        /* 0xFA */ (Implied,   CPU::nop    ),
+        /* 0xFB */ (Implied,   CPU::unimpl ),
+        /* 0xFC */ (AbsoluteX, CPU::nop    ),
+        /* 0xFD */ (AbsoluteX, CPU::sbc    ),
+        /* 0xFE */ (AbsoluteX, CPU::inc    ),
+        /* 0xFF */ (Implied,   CPU::unimpl ),
+    ];
 }
-
-macro_rules! read_instr_arg {
-    ( $obj:ident, immediate   ) => {{ let n = $obj.pc_getb()  ; Immediate(n)}};
-    ( $obj:ident, absolute    ) => {{ let n = $obj.pc_getdb() ; Address(n)}};
-    ( $obj:ident, absolute_x  ) => {{
-        let n = $obj.pc_getdb();
-        let n = $obj.absolute_x(n);
-        Address(n)
-    }};
-    ( $obj:ident, absolute_y  ) => {{
-        let n = $obj.pc_getdb();
-        let n = $obj.absolute_y(n);
-        Address(n)
-    }};
-    ( $obj:ident, zero_page  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.zero_page(n);
-        Address(n)
-    }};
-    ( $obj:ident, zero_page_x  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.zero_page_x(n);
-        Address(n)
-    }};
-    ( $obj:ident, zero_page_y  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.zero_page_y(n);
-        Address(n)
-    }};
-    ( $obj:ident, indirect  ) => {{
-        let n = $obj.pc_getdb();
-        let n = $obj.indirect(n);
-        Address(n)
-    }};
-    ( $obj:ident, indirect_x  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.indirect_x(n);
-        Address(n)
-    }};
-    ( $obj:ident, indirect_y  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.indirect_y(n);
-        Address(n)
-    }};
-    ( $obj:ident, implied  ) => {{
-        Implied
-    }};
-    ( $obj:ident, relative  ) => {{
-        let n = $obj.pc_getb();
-        let n = $obj.relative(n);
-        Address(n)
-    }};
-}
-
-macro_rules! instr {
-    ( $addr_mode:ident, $instr:ident ) =>
-        {
-            &|cpu : &mut CPU| {
-                let n = read_instr_arg!(cpu, $addr_mode);
-                cpu.$instr(n);
-            }
-        };
-}
-
-// TODO change to static? change implementation to not use macros
-const NUM_OPCODES : usize = 256;
-pub const INSTR : [&'static Fn(&mut CPU); NUM_OPCODES] = [
-    /* 0x00 */ instr!(implied, brk),
-    /* 0x01 */ instr!(indirect_x, ora),
-    /* 0x02 */ unimpl!(),
-    /* 0x03 */ unimpl!(),
-    /* 0x04 */ instr!(zero_page, nop),
-    /* 0x05 */ instr!(zero_page, ora),
-    /* 0x06 */ instr!(zero_page, asl),
-    /* 0x07 */ unimpl!(),
-    /* 0x08 */ instr!(implied, php),
-    /* 0x09 */ instr!(immediate, ora),
-    /* 0x0A */ instr!(implied, asl),
-    /* 0x0B */ unimpl!(),
-    /* 0x0C */ instr!(absolute, nop),
-    /* 0x0D */ instr!(absolute, ora),
-    /* 0x0E */ instr!(absolute, asl),
-    /* 0x0F */ unimpl!(),
-    /* 0x10 */ instr!(relative, bpl),
-    /* 0x11 */ instr!(indirect_y, ora),
-    /* 0x12 */ unimpl!(),
-    /* 0x13 */ unimpl!(),
-    /* 0x14 */ instr!(zero_page_x, nop),
-    /* 0x15 */ instr!(zero_page_x, ora),
-    /* 0x16 */ instr!(zero_page_x, asl),
-    /* 0x17 */ unimpl!(),
-    /* 0x18 */ instr!(implied, clc),
-    /* 0x19 */ instr!(absolute_y, ora),
-    /* 0x1A */ instr!(implied, nop),
-    /* 0x1B */ unimpl!(),
-    /* 0x1C */ instr!(absolute_x, nop),
-    /* 0x1D */ instr!(absolute_x, ora),
-    /* 0x1E */ instr!(absolute_x, asl),
-    /* 0x1F */ unimpl!(),
-    /* 0x20 */ instr!(absolute, jsr),
-    /* 0x21 */ instr!(indirect_x, and),
-    /* 0x22 */ unimpl!(),
-    /* 0x23 */ unimpl!(),
-    /* 0x24 */ instr!(zero_page, bit),
-    /* 0x25 */ instr!(zero_page, and),
-    /* 0x26 */ instr!(zero_page, rol),
-    /* 0x27 */ unimpl!(),
-    /* 0x28 */ instr!(implied, plp),
-    /* 0x29 */ instr!(immediate, and),
-    /* 0x2A */ instr!(implied, rol),
-    /* 0x2B */ unimpl!(),
-    /* 0x2C */ instr!(absolute, bit),
-    /* 0x2D */ instr!(absolute, and),
-    /* 0x2E */ instr!(absolute, rol),
-    /* 0x2F */ unimpl!(),
-    /* 0x30 */ instr!(relative, bmi),
-    /* 0x31 */ instr!(indirect_y, and),
-    /* 0x32 */ unimpl!(),
-    /* 0x33 */ unimpl!(),
-    /* 0x34 */ instr!(zero_page_x, nop),
-    /* 0x35 */ instr!(zero_page_x, and),
-    /* 0x36 */ instr!(zero_page_x, rol),
-    /* 0x37 */ unimpl!(),
-    /* 0x38 */ instr!(implied, sec),
-    /* 0x39 */ instr!(absolute_y, and),
-    /* 0x3A */ instr!(implied, nop),
-    /* 0x3B */ unimpl!(),
-    /* 0x3C */ instr!(absolute_x, nop),
-    /* 0x3D */ instr!(absolute_x, and),
-    /* 0x3E */ instr!(absolute_x, rol),
-    /* 0x3F */ unimpl!(),
-    /* 0x40 */ instr!(implied, rti),
-    /* 0x41 */ instr!(indirect_x, eor),
-    /* 0x42 */ unimpl!(),
-    /* 0x43 */ unimpl!(),
-    /* 0x44 */ instr!(zero_page, nop),
-    /* 0x45 */ instr!(zero_page, eor),
-    /* 0x46 */ instr!(zero_page, lsr),
-    /* 0x47 */ unimpl!(),
-    /* 0x48 */ instr!(implied, pha),
-    /* 0x49 */ instr!(immediate, eor),
-    /* 0x4A */ instr!(implied, lsr),
-    /* 0x4B */ unimpl!(),
-    /* 0x4C */ instr!(absolute, jmp),
-    /* 0x4D */ instr!(absolute, eor),
-    /* 0x4E */ instr!(absolute, lsr),
-    /* 0x4F */ unimpl!(),
-    /* 0x50 */ instr!(relative, bvc),
-    /* 0x51 */ instr!(indirect_y, eor),
-    /* 0x52 */ unimpl!(),
-    /* 0x53 */ unimpl!(),
-    /* 0x54 */ instr!(zero_page_x, nop),
-    /* 0x55 */ instr!(zero_page_x, eor),
-    /* 0x56 */ instr!(zero_page_x, lsr),
-    /* 0x57 */ unimpl!(),
-    /* 0x58 */ instr!(implied, cli),
-    /* 0x59 */ instr!(absolute_y, eor),
-    /* 0x5A */ instr!(implied, nop),
-    /* 0x5B */ unimpl!(),
-    /* 0x5C */ instr!(absolute_x, nop),
-    /* 0x5D */ instr!(absolute_x, eor),
-    /* 0x5E */ instr!(absolute_x, lsr),
-    /* 0x5F */ unimpl!(),
-    /* 0x60 */ instr!(implied, rts),
-    /* 0x61 */ instr!(indirect_x, adc),
-    /* 0x62 */ unimpl!(),
-    /* 0x63 */ unimpl!(),
-    /* 0x64 */ instr!(zero_page, nop),
-    /* 0x65 */ instr!(zero_page, adc),
-    /* 0x66 */ instr!(zero_page, ror),
-    /* 0x67 */ unimpl!(),
-    /* 0x68 */ instr!(implied, pla),
-    /* 0x69 */ instr!(immediate, adc),
-    /* 0x6A */ instr!(implied, ror),
-    /* 0x6B */ unimpl!(),
-    /* 0x6C */ instr!(indirect, jmp),
-    /* 0x6D */ instr!(absolute, adc),
-    /* 0x6E */ instr!(absolute, ror),
-    /* 0x6F */ unimpl!(),
-    /* 0x70 */ instr!(relative, bvs),
-    /* 0x71 */ instr!(zero_page_y, adc),
-    /* 0x72 */ unimpl!(),
-    /* 0x73 */ unimpl!(),
-    /* 0x74 */ instr!(zero_page_x, nop),
-    /* 0x75 */ instr!(zero_page_x, adc),
-    /* 0x76 */ instr!(zero_page_x, ror),
-    /* 0x77 */ unimpl!(),
-    /* 0x78 */ instr!(implied, sei),
-    /* 0x79 */ instr!(absolute_y, adc),
-    /* 0x7A */ instr!(implied, nop),
-    /* 0x7B */ unimpl!(),
-    /* 0x7C */ instr!(absolute_x, nop),
-    /* 0x7D */ instr!(absolute_x, adc),
-    /* 0x7E */ instr!(absolute_x, ror),
-    /* 0x7F */ unimpl!(),
-    /* 0x80 */ instr!(immediate, nop),
-    /* 0x81 */ instr!(indirect_x, sta),
-    /* 0x82 */ unimpl!(),
-    /* 0x83 */ unimpl!(),
-    /* 0x84 */ instr!(zero_page, sty),
-    /* 0x85 */ instr!(zero_page, sta),
-    /* 0x86 */ instr!(zero_page, stx),
-    /* 0x87 */ unimpl!(),
-    /* 0x88 */ instr!(implied, dey),
-    /* 0x89 */ unimpl!(),
-    /* 0x8A */ instr!(implied, txa),
-    /* 0x8B */ unimpl!(),
-    /* 0x8C */ instr!(absolute, sty),
-    /* 0x8D */ instr!(absolute, sta),
-    /* 0x8E */ instr!(absolute, stx),
-    /* 0x8F */ unimpl!(),
-    /* 0x90 */ instr!(relative, bcc),
-    /* 0x91 */ instr!(indirect_y, sta),
-    /* 0x92 */ unimpl!(),
-    /* 0x93 */ unimpl!(),
-    /* 0x94 */ instr!(zero_page_x, sty),
-    /* 0x95 */ instr!(zero_page_x, sta),
-    /* 0x96 */ instr!(zero_page_y, stx),
-    /* 0x97 */ unimpl!(),
-    /* 0x98 */ instr!(implied, tya),
-    /* 0x99 */ instr!(absolute_y, sta),
-    /* 0x9A */ instr!(implied, txs),
-    /* 0x9B */ unimpl!(),
-    /* 0x9C */ unimpl!(),
-    /* 0x9D */ instr!(absolute_x, sta),
-    /* 0x9E */ unimpl!(),
-    /* 0x9F */ unimpl!(),
-    /* 0xA0 */ instr!(immediate, ldy),
-    /* 0xA1 */ instr!(indirect_x, lda),
-    /* 0xA2 */ instr!(immediate, ldx),
-    /* 0xA3 */ instr!(indirect_x, lax),
-    /* 0xA4 */ instr!(zero_page, ldy),
-    /* 0xA5 */ instr!(zero_page, lda),
-    /* 0xA6 */ instr!(zero_page, ldx),
-    /* 0xA7 */ instr!(zero_page, lax),
-    /* 0xA8 */ instr!(implied, tay),
-    /* 0xA9 */ instr!(immediate, lda),
-    /* 0xAA */ instr!(implied, tax),
-    /* 0xAB */ unimpl!(),
-    /* 0xAC */ instr!(absolute, ldy),
-    /* 0xAD */ instr!(absolute, lda),
-    /* 0xAE */ instr!(absolute, ldx),
-    /* 0xAF */ instr!(absolute, lax),
-    /* 0xB0 */ instr!(relative,  bcs),
-    /* 0xB1 */ instr!(indirect_y, lda),
-    /* 0xB2 */ unimpl!(),
-    /* 0xB3 */ instr!(zero_page_y, lax),
-    /* 0xB4 */ instr!(zero_page_x, ldy),
-    /* 0xB5 */ instr!(zero_page_x, lda),
-    /* 0xB6 */ instr!(zero_page_y, ldx),
-    /* 0xB7 */ instr!(zero_page_y, lax),
-    /* 0xB8 */ instr!(implied, clv),
-    /* 0xB9 */ instr!(absolute_y, lda),
-    /* 0xBA */ instr!(implied, tsx),
-    /* 0xBB */ unimpl!(),
-    /* 0xBC */ instr!(absolute_x, ldy),
-    /* 0xBD */ instr!(absolute_x, lda),
-    /* 0xBE */ instr!(absolute_y, ldx),
-    /* 0xBF */ instr!(absolute_y, lax),
-    /* 0xC0 */ instr!(immediate, cpy),
-    /* 0xC1 */ instr!(indirect_x, cmp),
-    /* 0xC2 */ unimpl!(),
-    /* 0xC3 */ unimpl!(),
-    /* 0xC4 */ instr!(zero_page, cpy),
-    /* 0xC5 */ instr!(zero_page, cmp),
-    /* 0xC6 */ instr!(zero_page, dec),
-    /* 0xC7 */ unimpl!(),
-    /* 0xC8 */ instr!(implied, iny),
-    /* 0xC9 */ instr!(immediate, cmp),
-    /* 0xCA */ instr!(implied, dex),
-    /* 0xCB */ unimpl!(),
-    /* 0xCC */ instr!(absolute, cpy),
-    /* 0xCD */ instr!(absolute, cmp),
-    /* 0xCE */ instr!(absolute, dec),
-    /* 0xCF */ unimpl!(),
-    /* 0xD0 */ instr!(relative, bne),
-    /* 0xD1 */ instr!(indirect_y, cmp),
-    /* 0xD2 */ unimpl!(),
-    /* 0xD3 */ unimpl!(),
-    /* 0xD4 */ instr!(zero_page_x, nop),
-    /* 0xD5 */ instr!(zero_page_x, cmp),
-    /* 0xD6 */ instr!(zero_page_x, dec),
-    /* 0xD7 */ unimpl!(),
-    /* 0xD8 */ instr!(implied, cld),
-    /* 0xD9 */ instr!(absolute_y, cmp),
-    /* 0xDA */ instr!(implied, nop),
-    /* 0xDB */ unimpl!(),
-    /* 0xDC */ instr!(absolute_x, nop),
-    /* 0xDD */ instr!(absolute_x, cmp),
-    /* 0xDE */ instr!(absolute_x, dec),
-    /* 0xDF */ unimpl!(),
-    /* 0xE0 */ instr!(immediate, cpx),
-    /* 0xE1 */ instr!(indirect_x, sbc),
-    /* 0xE2 */ unimpl!(),
-    /* 0xE3 */ unimpl!(),
-    /* 0xE4 */ instr!(zero_page, cpx),
-    /* 0xE5 */ instr!(zero_page, sbc),
-    /* 0xE6 */ instr!(zero_page, inc),
-    /* 0xE7 */ unimpl!(),
-    /* 0xE8 */ instr!(implied, inx),
-    /* 0xE9 */ instr!(immediate, sbc),
-    /* 0xEA */ instr!(implied, nop),
-    /* 0xEB */ unimpl!(),
-    /* 0xEC */ instr!(absolute, cpx),
-    /* 0xED */ instr!(absolute, sbc),
-    /* 0xEE */ instr!(absolute, inc),
-    /* 0xEF */ unimpl!(),
-    /* 0xF0 */ instr!(relative, beq),
-    /* 0xF1 */ instr!(indirect_y, sbc),
-    /* 0xF2 */ unimpl!(),
-    /* 0xF3 */ unimpl!(),
-    /* 0xF4 */ instr!(zero_page_x, nop),
-    /* 0xF5 */ instr!(zero_page_x, sbc),
-    /* 0xF6 */ instr!(zero_page_x, inc),
-    /* 0xF7 */ unimpl!(),
-    /* 0xF8 */ instr!(implied, sed),
-    /* 0xF9 */ instr!(absolute_y, sbc),
-    /* 0xFA */ instr!(implied, nop),
-    /* 0xFB */ unimpl!(),
-    /* 0xFC */ instr!(absolute_x, nop),
-    /* 0xFD */ instr!(absolute_x, sbc),
-    /* 0xFE */ instr!(absolute_x, inc),
-    /* 0xFF */ unimpl!(),
-];
