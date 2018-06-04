@@ -13,10 +13,14 @@ impl Cartridge {
     pub fn test() -> Cartridge {
         let mut new_prgrom = Vec::new();
         new_prgrom.resize(0x8000, 0);
+
+        let mut new_chrrom = Vec::new();
+        new_chrrom.resize(0x2000, 0);
+
         Cartridge {
             prgrom_size : new_prgrom.len() as u16,
             prgrom : new_prgrom,
-            chrrom : Vec::new(),
+            chrrom : new_chrrom,
             vram : [0; VRAM_SIZE as usize],
         }
     }
@@ -97,6 +101,8 @@ const VRAM_LAST : u16 = 0x3EFF;
  VRAM or somewhere else. So it might not make sense from an OOP perspective,
  but it's easier to code.
 */
+
+// TODO horizontal mirroring
 
 // TODO right now I'm assuming it's NROM256
 impl Memory for Cartridge {

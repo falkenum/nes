@@ -2,17 +2,21 @@
 use super::graphics::SCREEN_SIZE;
 use super::{ ComponentRc, Memory, Cartridge };
 
+#[cfg(test)]
+mod tests;
+
 pub struct PPU {
     mem      : PPUMem,
+    pixeldata : [u8; SCREEN_SIZE],
+
     control  : u8,
     mask     : u8,
     oam_addr : u8,
-    // oam_data : u8,
     scroll   : u8,
+
     address  : u16,
     address_first_write : bool,
     address_first_val : u8,
-    // data     : u8,
 }
 
 const PALETTE_RAM_SIZE  : u16 = 0x0020;
@@ -92,6 +96,7 @@ impl PPU {
                 cart : cart,
                 palette_ram : [0; PALETTE_RAM_SIZE as usize],
             },
+            pixeldata : [0; SCREEN_SIZE],
             control  : 0,
             mask     : 0,
             oam_addr : 0,
@@ -150,145 +155,107 @@ impl PPU {
         }
     }
 
-    pub fn render(&self, picture : &mut super::graphics::Picture) {
+    fn render_scanline(&mut self, scanline : u16) {
+        // control:
+        // base nt
+        // vram increment
+        // sprite pt
+        // bg pt
+        // ext stuff (ignore)
+        // generate nmi
 
-        let mut pixeldata : [u8; SCREEN_SIZE] = [0; SCREEN_SIZE];
+        let nt_row = (scanline & 0b11111_000) >> 3;
+        let tile_row = scanline & 0b00000_111;
 
-        for scanline in 0..240 {
-            let nt_row = (scanline & 0b11111_000) >> 3;
-            let tile_row = scanline & 0b00000_111;
+        let nt_base_bits = (self.control & 0b00000011) as u16;
+        let nt_base = 0x2000 | (nt_base_bits << 8);
 
-            for nt_col in 0..32 {
-                let tile_num = self.mem.loadb(0x2000 + nt_col + 32*nt_row);
-                let tile_addr = (tile_num << 4) as u16;
+        debug_assert!(nt_base == 0x2000 ||
+                      nt_base == 0x2400 ||
+                      nt_base == 0x2800 ||
+                      nt_base == 0x2C00, "nt_base: {:x}", nt_base);
 
-                let pattern_low  = self.mem.loadb(tile_addr + tile_row);
-                let pattern_high = self.mem.loadb(tile_addr + tile_row + 8);
+        for nt_col in 0..32 {
+            let tile_num = self.mem.loadb(nt_base + nt_col + 32*nt_row);
+            let tile_addr = (tile_num as u16) << 4;
 
-                // loop through pairs of numbers like (0, 7), (1, 6), (2, 5), etc
-                for (tile_col, shamt) in (0..8).rev().enumerate() {
+            let pattern_low  = self.mem.loadb(tile_addr + tile_row);
+            let pattern_high = self.mem.loadb(tile_addr + tile_row + 8);
 
-                    // low two bits of palette index, from pattern table
-                    let palette_low = ((pattern_low  >> shamt) & 0b1) |
-                                    (((pattern_high >> shamt) & 0b1) << 1);
+            // loop through pairs of numbers like (0, 7), (1, 6), (2, 5), etc
+            for (tile_col, shamt) in (0..8).rev().enumerate() {
 
-                    // let get_attr = |vram_addr : u16| -> u8 {
+                // low two bits of palette index, from pattern table
+                let palette_low = ((pattern_low  >> shamt) & 0b1) |
+                                (((pattern_high >> shamt) & 0b1) << 1);
 
-                    //     // 10 bit nametable index (1024 bytes per nt)
-                    //     let nt_index = vram_addr & 0x3FF;
-                    //     let at_index = ((nt_index & 0b11100_00000) >> 4) |
-                    //     ((nt_index & 0b00000_11100) >> 2);
+                // let get_attr = |vram_addr : u16| -> u8 {
 
-                    //     // TODO assuming first nametable
-                    //     let at_base = 0x23C0;
+                //     // 10 bit nametable index (1024 bytes per nt)
+                //     let nt_index = vram_addr & 0x3FF;
+                //     let at_index = ((nt_index & 0b11100_00000) >> 4) |
+                //     ((nt_index & 0b00000_11100) >> 2);
 
-                    //     let at_val = self.mem.loadb(at_base + at_index);
+                //     // TODO assuming first nametable
+                //     let at_base = 0x23C0;
 
-                    //     let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
-                    //     ((nt_index & 0b00000_00010) >> 1);
+                //     let at_val = self.mem.loadb(at_base + at_index);
 
-                    //     match tile_attr_quadrant {
-                    //         // top left
-                    //         0 => (at_val & 0b00000011) << 2,
-                    //         // top right
-                    //         1 => (at_val & 0b00001100) << 0,
-                    //         // bottom left
-                    //         2 => (at_val & 0b00110000) >> 2,
-                    //         // bottom right
-                    //         4 => (at_val & 0b11000000) >> 4,
-                    //         _ => panic!("messed up somewhere")
-                    //     }
-                    // };
+                //     let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
+                //     ((nt_index & 0b00000_00010) >> 1);
+
+                //     match tile_attr_quadrant {
+                //         // top left
+                //         0 => (at_val & 0b00000011) << 2,
+                //         // top right
+                //         1 => (at_val & 0b00001100) << 0,
+                //         // bottom left
+                //         2 => (at_val & 0b00110000) >> 2,
+                //         // bottom right
+                //         4 => (at_val & 0b11000000) >> 4,
+                //         _ => panic!("messed up somewhere")
+                //     }
+                // };
 
 
-                    // let palette_high = get_attr(0x2000);
-                    let palette_high = 0;
+                // let palette_high = get_attr(0x2000);
+                let palette_high = 0;
 
-                    let palette_i = palette_high | palette_low;
+                let palette_i = palette_high | palette_low;
 
-                    debug_assert!(palette_i < 16,
-                                "invalid palette_i {:b}", palette_i);
+                debug_assert!(palette_i < 16,
+                            "invalid palette_i {:b}", palette_i);
 
-                    let color =
-                        self.mem.loadb(0x3F00 + palette_i as u16) as usize;
+                let color =
+                    self.mem.loadb(0x3F00 + palette_i as u16) as usize;
 
-                    debug_assert!(color < 64, "invalid color {:x}", color);
+                debug_assert!(color < 64, "invalid color {:x}", color);
 
-                    let color_bgr = PALETTE_BGR[color];
+                let color_bgr = PALETTE_BGR[color];
 
-                    let tile_row = tile_row as usize;
-                    let tile_col = tile_col as usize;
-                    let nt_row = nt_row as usize;
-                    let nt_col = nt_col as usize;
+                let tile_row = tile_row as usize;
+                let tile_col = tile_col as usize;
+                let nt_row = nt_row as usize;
+                let nt_col = nt_col as usize;
 
-                    let x = nt_row*256*3*8 + nt_col*8*3 +
-                            tile_row*256*3 + tile_col*3;
+                let x = nt_row*256*3*8 + nt_col*8*3 +
+                        tile_row*256*3 + tile_col*3;
 
-                    pixeldata[x + 0] = color_bgr.0;
-                    pixeldata[x + 1] = color_bgr.1;
-                    pixeldata[x + 2] = color_bgr.2;
-                }
+                self.pixeldata[x + 0] = color_bgr.0;
+                self.pixeldata[x + 1] = color_bgr.1;
+                self.pixeldata[x + 2] = color_bgr.2;
             }
         }
 
-        picture.update(&pixeldata);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{ PPU, Memory, Cartridge };
-    use super::reg_id::*;
-    #[test]
-    fn mappings() {
-        let mut p = PPU::new(Cartridge::test_ref());
-        p.mem.storeb(0x2000, 5);
-        assert_eq!(p.mem.loadb(0x3000), 5);
-        p.mem.storeb(0x2EFF, 5);
-        assert_eq!(p.mem.loadb(0x3EFF), 5);
-        p.mem.storeb(0x3F00, 5);
-        assert_eq!(p.mem.loadb(0x3F20), 5);
-        p.mem.storeb(0x3F1F, 5);
-        assert_eq!(p.mem.loadb(0x3FFF), 5);
     }
 
-    #[test]
-    fn address_reg() {
-        let mut p = PPU::new(Cartridge::test_ref());
-        assert_eq!(p.address, 0x0000);
+    pub fn render(&mut self, picture : &mut super::graphics::Picture) {
+        for i in 0..240 {
+            self.render_scanline(i);
+        }
 
-        p.reg_write(ADDRESS, 0x3F);
-        assert_eq!(p.address, 0x0000);
-        p.reg_write(ADDRESS, 0x00);
-        assert_eq!(p.address, 0x3F00);
-
-        p.reg_write(ADDRESS, 0x12);
-        assert_eq!(p.address, 0x3F00);
-        p.reg_write(ADDRESS, 0x34);
-        assert_eq!(p.address, 0x1234);
-
-        p.reg_write(ADDRESS, 0x55);
-        assert_eq!(p.address, 0x1234);
-        p.reg_write(ADDRESS, 0x55);
-        assert_eq!(p.address, 0x1555);
+        picture.update(&self.pixeldata);
     }
-
-    #[test]
-    fn data_reg() {
-        let mut p = PPU::new(Cartridge::test_ref());
-        assert_eq!(p.address, 0x0000);
-
-        p.reg_write(ADDRESS, 0x3F);
-        assert_eq!(p.address, 0x0000);
-        p.reg_write(ADDRESS, 0x00);
-        assert_eq!(p.address, 0x3F00);
-
-        p.reg_write(DATA, 0xFF);
-
-        assert_eq!(p.mem.loadb(0x3F00), 0xFF);
-        assert_eq!(p.address, 0x3F01);
-    }
-
 }
 
 static PALETTE_BGR: [(u8, u8, u8); 64] = [

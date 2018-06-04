@@ -44,17 +44,17 @@ pub fn run_emulator(cart : Cartridge) {
         cpu.step();
     }
 
-    ppu.borrow().render(&mut picture);
+    ppu.borrow_mut().render(&mut picture);
     screen.update_and_show(&picture);
 
     // cpu.reset();
     use std::time::SystemTime;
     let start = SystemTime::now();
-    let mut cpu_cycles = 0;
-    let mut num_frames = 0;
+    let mut cpu_cycles : usize = 0;
+    let mut num_frames : usize = 0;
 
     'running: loop {
-        cpu_cycles += cpu.step();
+        cpu_cycles += cpu.step() as usize;
 
         for event in input.events() {
             match event {
@@ -70,14 +70,11 @@ pub fn run_emulator(cart : Cartridge) {
 
     let duration = start.elapsed().unwrap();
 
-    // println!("ran for {:?}", duration);
-    // println!("{} ticks", num_ticks);
-
     let freq = cpu_cycles as f64 /
         (duration.as_secs() as f64 +
          (duration.subsec_nanos() as f64) / 1_000_000_000f64);
 
-    println!("{} ticks/sec", freq);
+    println!("{} cycles/sec", freq);
 
     let freq = num_frames as f64 /
         (duration.as_secs() as f64 +

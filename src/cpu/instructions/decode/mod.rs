@@ -92,7 +92,7 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
             InstrArg::Address(addr)
         },
     };
-    // TODO test for cycles being added correctly
+    // TODO add all the checks for page boundaries
 
     DecodeResult {
         num_cycles : num_cycles,

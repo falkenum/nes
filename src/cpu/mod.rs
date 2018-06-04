@@ -2,7 +2,6 @@
 mod tests;
 mod instructions;
 
-use self::instructions::decode::Op;
 use self::instructions::InstrArg;
 use cartridge::Cartridge;
 use super::{ ComponentRc, PPU, APU, Controller };
@@ -158,8 +157,6 @@ impl CPU {
         (op.instr)(self, op.arg);
 
         cycles += decode_result.num_cycles;
-
-        // println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
 
         cycles
     }
