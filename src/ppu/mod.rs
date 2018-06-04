@@ -66,6 +66,7 @@ impl Memory for PPUMem {
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
             PALETTE_RAM_FIRST...PALETTE_RAM_LAST =>
+                // TODO palette background mirroring
                 self.palette_ram[(addr % PALETTE_RAM_SIZE) as usize] = val,
             _ => panic!("invalid ppu address"),
         }
@@ -176,7 +177,8 @@ impl PPU {
                       nt_base == 0x2C00, "nt_base: {:x}", nt_base);
 
         for nt_col in 0..32 {
-            let tile_num = self.mem.loadb(nt_base + nt_col + 32*nt_row);
+            let nt_addr = nt_base + nt_col + 32*nt_row;
+            let tile_num = self.mem.loadb(nt_addr);
             let tile_addr = (tile_num as u16) << 4;
 
             let pattern_low  = self.mem.loadb(tile_addr + tile_row);
@@ -189,37 +191,33 @@ impl PPU {
                 let palette_low = ((pattern_low  >> shamt) & 0b1) |
                                 (((pattern_high >> shamt) & 0b1) << 1);
 
-                // let get_attr = |vram_addr : u16| -> u8 {
+                let palette_high = {
 
-                //     // 10 bit nametable index (1024 bytes per nt)
-                //     let nt_index = vram_addr & 0x3FF;
-                //     let at_index = ((nt_index & 0b11100_00000) >> 4) |
-                //     ((nt_index & 0b00000_11100) >> 2);
+                    // 10 bit nametable index (1024 bytes per nt)
+                    let nt_index = nt_addr & 0x3FF;
+                    let at_index = ((nt_index & 0b11100_00000) >> 4) |
+                                   ((nt_index & 0b00000_11100) >> 2);
 
-                //     // TODO assuming first nametable
-                //     let at_base = 0x23C0;
+                    let at_base = nt_base + 0x3C0;
 
-                //     let at_val = self.mem.loadb(at_base + at_index);
+                    let at_val = self.mem.loadb(at_base + at_index);
 
-                //     let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
-                //     ((nt_index & 0b00000_00010) >> 1);
+                    let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
+                                             ((nt_index & 0b00000_00010) >> 1);
 
-                //     match tile_attr_quadrant {
-                //         // top left
-                //         0 => (at_val & 0b00000011) << 2,
-                //         // top right
-                //         1 => (at_val & 0b00001100) << 0,
-                //         // bottom left
-                //         2 => (at_val & 0b00110000) >> 2,
-                //         // bottom right
-                //         4 => (at_val & 0b11000000) >> 4,
-                //         _ => panic!("messed up somewhere")
-                //     }
-                // };
-
-
-                // let palette_high = get_attr(0x2000);
-                let palette_high = 0;
+                    match tile_attr_quadrant {
+                        // top left
+                        0 => (at_val & 0b00000011) << 2,
+                        // top right
+                        1 => (at_val & 0b00001100) << 0,
+                        // bottom left
+                        2 => (at_val & 0b00110000) >> 2,
+                        // bottom right
+                        3 => (at_val & 0b11000000) >> 4,
+                        _ => panic!("messed up somewhere, quadrant: {}",
+                                     tile_attr_quadrant)
+                    }
+                };
 
                 let palette_i = palette_high | palette_low;
 
@@ -274,5 +272,5 @@ static PALETTE_BGR: [(u8, u8, u8); 64] = [
     (252, 252, 252), (252, 228, 164), (248, 184, 184), (248, 184, 216),
     (248, 184, 248), (192, 164, 248), (176, 208, 240), (168, 224, 252),
     (120, 216, 248), (120, 248, 216), (184, 248, 184), (216, 248, 184),
-    (252, 252, 000), (248, 216, 248), (000, 000, 000), (000, 000, 000)
+    (252, 252, 000), (248, 216, 248), (000, 000, 000), (000, 000, 000),
 ];
