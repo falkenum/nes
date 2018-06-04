@@ -19,12 +19,8 @@ fn interrupt() {
     c.mem.storeb(0xFFFA, 0xAB);
     c.mem.storeb(0xFFFB, 0xCD);
     c.pc = 0x8001;
-    c.send_nmi();
-    assert_eq!(c.cycle_count, 0);
-    c.tick();
-    assert_eq!(c.cycle_count, 6);
+    c.nmi();
 
-    c.step();
     assert_eq!(c.mem.loadb(0x01FF), 0x80);
     assert_eq!(c.mem.loadb(0x01FE), 0x01);
     assert_eq!(c.mem.loadb(0x01FD), 0b00100000);
@@ -35,12 +31,7 @@ fn interrupt() {
     let mut c = CPU::test();
     c.mem.storeb(0xFFFC, 0xAB);
     c.mem.storeb(0xFFFD, 0xCD);
-    c.send_reset();
-    assert_eq!(c.cycle_count, 0);
-    c.tick();
-    assert_eq!(c.cycle_count, 6);
-    assert_eq!(c.pc, 0x8000);
-    c.step();
+    c.reset();
     assert_eq!(c.pc, 0xCDAB);
 }
 

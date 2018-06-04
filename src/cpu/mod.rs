@@ -102,8 +102,6 @@ pub struct CPU {
     pc : u16,
     flags : CPUFlags,
     mem : CPUMem,
-    cycle_count : u8,
-    next_op : Op,
     interrupt_status : InterruptStatus,
 }
 
@@ -132,90 +130,41 @@ enum InterruptStatus {
 }
 
 impl CPU {
-    // finishes current instruction or nmi sequence,
-    // or executes the next one if there's nothing
-    pub fn step(&mut self) {
 
-        // if there's nothing queued, then get something
-        if self.cycle_count == 0 {
-            if let InterruptStatus::None = self.interrupt_status {
-                let decode_result = instructions::decode::fetch_and_decode(self);
-                self.next_op = decode_result.op;
-            }
-            else {
-                // 7-clock interrupt sequence, same timing as BRK
+    // does interrupt if requested
+    // executes next instruction, returns cycles passed
+    pub fn step(&mut self) -> u8 {
 
-                let interrupt = match self.interrupt_status {
-                    InterruptStatus::NMI => CPU::nmi,
-                    InterruptStatus::Reset => CPU::reset,
-                    InterruptStatus::IRQ => unimplemented!(),
-                    _ => panic!("shouldn't reach here"),
-                };
+        let mut cycles = 0;
+        const INTERRUPT_CYCLES : u8 = 7;
 
-                self.next_op = Op {
-                    instr : interrupt,
-                    arg : InstrArg::Implied,
-                };
+        match self.interrupt_status {
+            InterruptStatus::NMI => {
+                self.nmi();
+                cycles += INTERRUPT_CYCLES;
+            },
+            InterruptStatus::Reset => {
+                self.reset();
+                cycles += INTERRUPT_CYCLES;
+            },
+            InterruptStatus::IRQ => unimplemented!(),
+            InterruptStatus::None => (),
+        };
 
-                self.interrupt_status = InterruptStatus::None;
-            }
-        }
+        self.interrupt_status = InterruptStatus::None;
 
-        else {
-            self.cycle_count = 0;
-        }
+        let decode_result = instructions::decode::fetch_and_decode(self);
+        let op = decode_result.op;
+        (op.instr)(self, op.arg);
 
-        let arg = self.next_op.arg;
-        (self.next_op.instr)(self, arg);
+        cycles += decode_result.num_cycles;
 
         // println!("executing opcode 0x{:X} at pc 0x{:X}", op, self.pc - 1);
+
+        cycles
     }
 
-    // moves forward one clock cycle
-    pub fn tick(&mut self) {
-
-        // if there's no cycles left, then we need to queue (sort of) the
-        // the next instruction or nmi
-        if self.cycle_count == 0 {
-            const INTERRUPT_CYCLES : u8 = 7;
-            if let InterruptStatus::None = self.interrupt_status {
-                let decode_result = instructions::decode::fetch_and_decode(self);
-                self.next_op = decode_result.op;
-                self.cycle_count = decode_result.num_cycles;
-            }
-            else {
-                // 7-clock interrupt sequence, same timing as BRK
-
-                let interrupt = match self.interrupt_status {
-                    InterruptStatus::NMI => CPU::nmi,
-                    InterruptStatus::Reset => CPU::reset,
-                    InterruptStatus::IRQ => unimplemented!(),
-                    _ => panic!("shouldn't reach here"),
-                };
-
-                self.next_op = Op {
-                    instr : interrupt,
-                    arg : InstrArg::Implied,
-                };
-
-                self.interrupt_status = InterruptStatus::None;
-                self.cycle_count = INTERRUPT_CYCLES;
-            }
-        }
-
-        // if there's one cycle left, then we need to execute
-        // the instruction that is queued
-        else if self.cycle_count == 1 {
-            let arg = self.next_op.arg;
-            // println!("executing op at pc 0x{:X}", self.pc);
-            (self.next_op.instr)(self, arg);
-        }
-
-        // do the tick
-        self.cycle_count -= 1;
-    }
-
-    pub fn get_pc (&self) -> u16 { self.pc }
+    pub fn get_pc(&self) -> u16 { self.pc }
 
     fn push(&mut self, val : u8) {
         self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
@@ -233,8 +182,7 @@ impl CPU {
     }
 
     // to be called at startup of the NES
-    fn reset(&mut self, arg : InstrArg) {
-        debug_assert_eq!(arg, InstrArg::Implied);
+    fn reset(&mut self) {
         let dest_high = self.mem.loadb(0xFFFD);
         let dest_low = self.mem.loadb(0xFFFC);
         self.pc = concat_bytes(dest_high, dest_low);
@@ -245,8 +193,7 @@ impl CPU {
         self.interrupt_status = InterruptStatus::NMI;
     }
 
-    fn nmi(&mut self, arg : InstrArg) {
-        debug_assert_eq!(arg, InstrArg::Implied);
+    fn nmi(&mut self) {
 
         let (ret_high, ret_low) = split_bytes(self.pc);
         self.push(ret_high);
@@ -321,11 +268,6 @@ impl CPU {
                 ppu : ppu,
                 apu : apu,
                 controller : controller,
-            },
-            cycle_count : 0,
-            next_op : Op {
-                instr : CPU::unimpl,
-                arg : InstrArg::Implied,
             },
             interrupt_status : InterruptStatus::None,
         }
