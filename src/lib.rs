@@ -40,7 +40,6 @@ pub fn run_emulator(cart : Cartridge) {
     let mut picture = picture_creator.create_picture();
 
     cpu.send_nmi();
-    cpu.step();
     for _ in 0..13 {
         cpu.step();
     }
@@ -55,7 +54,7 @@ pub fn run_emulator(cart : Cartridge) {
     let mut num_frames = 0;
 
     'running: loop {
-        // cpu.step();
+        cpu_cycles += cpu.step();
 
         for event in input.events() {
             match event {
