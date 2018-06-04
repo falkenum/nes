@@ -1,5 +1,5 @@
 
-use super::{ CPU, RAM_LAST, RAM_SIZE, Memory, Cartridge };
+use super::{ CPU, RAM_LAST, RAM_SIZE, Memory };
 #[test]
 fn ram() {
     let c = CPU::test();
@@ -20,6 +20,10 @@ fn interrupt() {
     c.mem.storeb(0xFFFB, 0xCD);
     c.pc = 0x8001;
     c.send_nmi();
+    assert_eq!(c.cycle_count, 0);
+    c.tick();
+    assert_eq!(c.cycle_count, 6);
+
     c.step();
     assert_eq!(c.mem.loadb(0x01FF), 0x80);
     assert_eq!(c.mem.loadb(0x01FE), 0x01);
@@ -27,6 +31,17 @@ fn interrupt() {
     assert_eq!(c.sp, 0xFC);
     assert_eq!(c.pc, 0xCDAB);
     assert_eq!(c.flags.i, true);
+
+    let mut c = CPU::test();
+    c.mem.storeb(0xFFFC, 0xAB);
+    c.mem.storeb(0xFFFD, 0xCD);
+    c.send_reset();
+    assert_eq!(c.cycle_count, 0);
+    c.tick();
+    assert_eq!(c.cycle_count, 6);
+    assert_eq!(c.pc, 0x8000);
+    c.step();
+    assert_eq!(c.pc, 0xCDAB);
 }
 
 #[test]

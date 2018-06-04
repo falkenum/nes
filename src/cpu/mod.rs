@@ -104,7 +104,7 @@ pub struct CPU {
     mem : CPUMem,
     cycle_count : u8,
     next_op : Op,
-    do_nmi : bool,
+    interrupt_status : InterruptStatus,
 }
 
 use std::fmt;
@@ -123,27 +123,44 @@ impl fmt::Debug for CPU {
 
 const STACK_BEGIN : u16 = 0x100;
 
+#[derive(Debug, PartialEq)]
+enum InterruptStatus {
+    None,
+    NMI,
+    IRQ,
+    Reset,
+}
+
 impl CPU {
-    // finishes current instruction,
+    // finishes current instruction or nmi sequence,
     // or executes the next one if there's nothing
-    pub fn step (&mut self) {
+    pub fn step(&mut self) {
 
         // if there's nothing queued, then get something
         if self.cycle_count == 0 {
-            if self.do_nmi {
-                self.next_op = Op {
-                    instr : CPU::nmi,
-                    arg : InstrArg::Implied,
-                };
-
-                self.do_nmi = false;
-            }
-
-            else {
+            if let InterruptStatus::None = self.interrupt_status {
                 let decode_result = instructions::decode::fetch_and_decode(self);
                 self.next_op = decode_result.op;
             }
+            else {
+                // 7-clock interrupt sequence, same timing as BRK
+
+                let interrupt = match self.interrupt_status {
+                    InterruptStatus::NMI => CPU::nmi,
+                    InterruptStatus::Reset => CPU::reset,
+                    InterruptStatus::IRQ => unimplemented!(),
+                    _ => panic!("shouldn't reach here"),
+                };
+
+                self.next_op = Op {
+                    instr : interrupt,
+                    arg : InstrArg::Implied,
+                };
+
+                self.interrupt_status = InterruptStatus::None;
+            }
         }
+
         else {
             self.cycle_count = 0;
         }
@@ -160,30 +177,37 @@ impl CPU {
         // if there's no cycles left, then we need to queue (sort of) the
         // the next instruction or nmi
         if self.cycle_count == 0 {
-            // check for interrupt/vblank
-            if self.do_nmi {
-                // 7-clock interrupt sequence, same timing as BRK
-                let nmi_cycles = 7;
-
-                self.next_op = Op {
-                    instr : CPU::nmi,
-                    arg : InstrArg::Implied,
-                };
-
-                self.do_nmi = false;
-                self.cycle_count = nmi_cycles;
-            }
-
-            else {
+            const INTERRUPT_CYCLES : u8 = 7;
+            if let InterruptStatus::None = self.interrupt_status {
                 let decode_result = instructions::decode::fetch_and_decode(self);
                 self.next_op = decode_result.op;
                 self.cycle_count = decode_result.num_cycles;
             }
+            else {
+                // 7-clock interrupt sequence, same timing as BRK
+
+                let interrupt = match self.interrupt_status {
+                    InterruptStatus::NMI => CPU::nmi,
+                    InterruptStatus::Reset => CPU::reset,
+                    InterruptStatus::IRQ => unimplemented!(),
+                    _ => panic!("shouldn't reach here"),
+                };
+
+                self.next_op = Op {
+                    instr : interrupt,
+                    arg : InstrArg::Implied,
+                };
+
+                self.interrupt_status = InterruptStatus::None;
+                self.cycle_count = INTERRUPT_CYCLES;
+            }
         }
+
         // if there's one cycle left, then we need to execute
         // the instruction that is queued
         else if self.cycle_count == 1 {
             let arg = self.next_op.arg;
+            // println!("executing op at pc 0x{:X}", self.pc);
             (self.next_op.instr)(self, arg);
         }
 
@@ -203,16 +227,22 @@ impl CPU {
         self.mem.loadb(STACK_BEGIN + self.sp as u16)
     }
 
+    pub fn send_reset(&mut self) {
+        debug_assert_eq!(self.interrupt_status, InterruptStatus::None);
+        self.interrupt_status = InterruptStatus::Reset;
+    }
+
     // to be called at startup of the NES
-    pub fn reset(&mut self) {
+    fn reset(&mut self, arg : InstrArg) {
+        debug_assert_eq!(arg, InstrArg::Implied);
         let dest_high = self.mem.loadb(0xFFFD);
         let dest_low = self.mem.loadb(0xFFFC);
         self.pc = concat_bytes(dest_high, dest_low);
     }
 
     pub fn send_nmi(&mut self) {
-        debug_assert_eq!(self.do_nmi, false);
-        self.do_nmi = true;
+        debug_assert_eq!(self.interrupt_status, InterruptStatus::None);
+        self.interrupt_status = InterruptStatus::NMI;
     }
 
     fn nmi(&mut self, arg : InstrArg) {
@@ -297,7 +327,7 @@ impl CPU {
                 instr : CPU::unimpl,
                 arg : InstrArg::Implied,
             },
-            do_nmi : false,
+            interrupt_status : InterruptStatus::None,
         }
     }
 }

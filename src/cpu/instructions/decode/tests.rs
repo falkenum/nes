@@ -1,4 +1,4 @@
-    use ::{ Memory, CPU, Cartridge };
+    use ::{ Memory, CPU };
 
     #[test]
     fn cycles() {
@@ -14,13 +14,17 @@
         assert_eq!(c.cycle_count, 0);
 
         // no page crossing on lda indirect, y: 5 cycles
-        c.mem.storeb(0x00FD, 0xBB);
+        c.mem.storeb(0x01FD, 0xBB);
         c.mem.storeb(0x00F0, 0x0D);
+        c.mem.storeb(0x00F1, 0x01);
         c.y = 0xF0;
         c.mem.storeb(0x8002, 0xB1);
         c.mem.storeb(0x8003, 0xF0);
         c.tick();
         assert_eq!(c.cycle_count, 4);
+        c.tick();
+        assert_eq!(c.a, 0x55);
+        assert_eq!(c.cycle_count, 3);
         c.step();
         assert_eq!(c.a, 0xBB);
 

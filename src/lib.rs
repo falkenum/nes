@@ -39,17 +39,23 @@ pub fn run_emulator(cart : Cartridge) {
     let picture_creator = screen.picture_creator();
     let mut picture = picture_creator.create_picture();
 
-    // cpu.nmi();
-    // for _ in 0..13 {
-    //     cpu.step();
-    // }
+    cpu.send_nmi();
+    cpu.step();
+    for _ in 0..13 {
+        cpu.step();
+    }
 
     ppu.borrow().render(&mut picture);
     screen.update_and_show(&picture);
 
     // cpu.reset();
+    use std::time::SystemTime;
+    let start = SystemTime::now();
+    let mut num_ticks = 0;
     'running: loop {
-        // cpu.step();
+        cpu.tick();
+        num_ticks += 1;
+
         for event in input.events() {
             match event {
                 EmulatorEvent::Exit => break 'running,
@@ -58,9 +64,19 @@ pub fn run_emulator(cart : Cartridge) {
                     controller.borrow_mut().update(action, button),
             }
         }
-        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 120));
     }
 
+    let duration = start.elapsed().unwrap();
+
+    // println!("ran for {:?}", duration);
+    // println!("{} ticks", num_ticks);
+
+    let freq = num_ticks as f64 /
+        (duration.as_secs() as f64 +
+         (duration.subsec_nanos() as f64) / 1_000_000_000f64);
+
+    println!("{} ticks/sec", freq);
 }
 
 trait Memory {

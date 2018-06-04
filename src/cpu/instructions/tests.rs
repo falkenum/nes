@@ -1,5 +1,4 @@
 use super::{ CPU, InstrArg, Memory };
-use ::Cartridge;
 use ::cpu::CPUFlags;
 
 #[test]
@@ -1302,7 +1301,8 @@ fn sta() {
     // indirect, x
     c.a = 3;
     c.x = 1;
-    c.mem.storeb(0x00FF, 0x10FF);
+    c.mem.storeb(0x00FF, 0xFF);
+    c.mem.storeb(0x0100, 0x10);
     c.mem.storeb(0x8000, 0x81);
     c.mem.storeb(0x8001, 0xFE);
     c.step();
@@ -1312,7 +1312,8 @@ fn sta() {
     // indirect, y
     c.a = 3;
     c.y = 1;
-    c.mem.storeb(0x00FF, 0x10FE);
+    c.mem.storeb(0x00FF, 0xFE);
+    c.mem.storeb(0x0100, 0x10);
     c.mem.storeb(0x8000, 0x91);
     c.mem.storeb(0x8001, 0xFF);
     c.step();
