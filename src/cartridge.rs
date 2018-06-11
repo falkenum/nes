@@ -99,13 +99,13 @@ const VRAM_LAST : u16 = 0x3EFF;
 */
 
 // TODO horizontal mirroring
-
-// TODO right now I'm assuming it's NROM256
 impl Memory for Cartridge {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
             CHR_FIRST...CHR_LAST => self.chrrom[addr as usize],
             VRAM_FIRST...VRAM_LAST => self.vram[(addr % VRAM_SIZE) as usize],
+
+            // vertical mirroring
             PRG_FIRST...PRG_LAST => self.prgrom[((addr - PRG_FIRST) %
                                                  self.prgrom_size) as usize],
             _ => panic!("invalid cartridge address"),
