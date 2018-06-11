@@ -5,18 +5,21 @@ use super::{ ComponentRc, Memory, Cartridge };
 #[cfg(test)]
 mod tests;
 
+const OAM_SIZE : usize = 256;
+
 pub struct PPU {
-    mem      : PPUMem,
-    pixeldata : [u8; SCREEN_SIZE],
+    mem                 : PPUMem,
+    oam                 : [u8; OAM_SIZE],
+    pixeldata           : [u8; SCREEN_SIZE],
 
-    control  : u8,
-    mask     : u8,
-    oam_addr : u8,
-    scroll   : u8,
+    control             : u8,
+    mask                : u8,
+    oam_addr            : u8,
+    scroll              : u8,
 
-    address  : u16,
+    address             : u16,
     address_first_write : bool,
-    address_first_val : u8,
+    address_first_val   : u8,
 
     // required to correctly emulate reads from $2007,
     // look at https://wiki.nesdev.com/w/index.php/PPU_registers,
@@ -118,6 +121,7 @@ impl PPU {
                 palette_ram : [0; PALETTE_RAM_SIZE as usize],
             },
             pixeldata : [0; SCREEN_SIZE],
+            oam       : [0; OAM_SIZE],
             control  : 0,
             mask     : 0,
             oam_addr : 0,
@@ -137,13 +141,13 @@ impl PPU {
         use self::reg_id::*;
         match reg_num {
 
-            CONTROL => unimplemented!(),
-            MASK    => unimplemented!(),
+            CONTROL => 0,
+            MASK    => 0,
             STATUS  => unimplemented!(),
-            OAMADDR => unimplemented!(),
-            OAMDATA => unimplemented!(),
+            OAMADDR => 0,
+            OAMDATA => self.oam[self.oam_addr as usize],
             SCROLL  => unimplemented!(),
-            ADDRESS => unimplemented!(),
+            ADDRESS => 0,
             DATA    => {
                 let addr = self.address;
                 self.address += if self.control >> 2 == 1 { 0x20 } else { 0x01 };
@@ -166,10 +170,13 @@ impl PPU {
         use self::reg_id::*;
         match reg_num {
             CONTROL => self.control = val,
-            MASK    => unimplemented!(),
+            MASK    => self.mask = val,
             STATUS  => unimplemented!(),
-            OAMADDR => unimplemented!(),
-            OAMDATA => unimplemented!(),
+            OAMADDR => self.oam_addr = val,
+            OAMDATA => {
+                self.oam[self.oam_addr as usize] = val;
+                self.oam_addr = self.oam_addr.wrapping_add(1);
+            },
             SCROLL  => unimplemented!(),
             ADDRESS => {
                 if self.address_first_write {
@@ -193,8 +200,6 @@ impl PPU {
     }
 
     fn render_scanline(&mut self, scanline : u16) {
-        // TODO palette 0 always goes to 0x3F00
-        // palette mirrors
         // control:
         // base nt
         // vram increment
@@ -217,7 +222,11 @@ impl PPU {
         for nt_col in 0..32 {
             let nt_addr = nt_base + nt_col + 32*nt_row;
             let tile_num = self.mem.loadb(nt_addr);
-            let tile_addr = (tile_num as u16) << 4;
+
+            // add offset if pt is at 0x1000
+            let pt_base = (self.control as u16 & 0b00010000) << 8;
+
+            let tile_addr = pt_base + ((tile_num as u16) << 4);
 
             let pattern_low  = self.mem.loadb(tile_addr + tile_row);
             let pattern_high = self.mem.loadb(tile_addr + tile_row + 8);

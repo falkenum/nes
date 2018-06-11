@@ -5,6 +5,54 @@ use super::reg_id::*;
 const SCREEN_WIDTH : usize = 256;
 
 #[test]
+fn oam_regs() {
+    let mut p = PPU::test();
+    p.reg_write(OAMADDR, 0x00);
+    p.reg_write(OAMDATA, 0xFF);
+
+    assert_eq!(p.oam_addr, 0x01);
+    assert_eq!(p.oam[0x00], 0xFF);
+
+    // reads shouldn't increment oam_addr
+    assert_eq!(p.oam_addr, 0x01);
+
+    p.reg_write(OAMDATA, 0xFF);
+    assert_eq!(p.oam[0x01], 0xFF);
+}
+
+#[test]
+fn bg_pt_base() {
+    // testing bit 4 of ppuctrl
+    let mut p = PPU::test();
+
+    p.mem.storeb(0x3F01, 0x01);
+    p.mem.storeb(0x3F02, 0x02);
+
+    p.mem.storeb(0x0008, 0x80);
+    p.mem.storeb(0x1000, 0x80);
+
+    // use pt at 0x0000
+    p.control = 0x00;
+
+    p.render_scanline(0);
+
+    let pixel = 0;
+    assert_eq!(p.pixeldata[pixel*3+0], 188);
+    assert_eq!(p.pixeldata[pixel*3+1], 000);
+    assert_eq!(p.pixeldata[pixel*3+2], 000);
+
+    // use pt at 0x1000
+    p.control = 0x10;
+
+    p.render_scanline(0);
+
+    let pixel = 0;
+    assert_eq!(p.pixeldata[pixel*3+0], 252);
+    assert_eq!(p.pixeldata[pixel*3+1], 000);
+    assert_eq!(p.pixeldata[pixel*3+2], 000);
+}
+
+#[test]
 fn palette_mirroring() {
     // testing palette mirroring
     let mut p = PPU::test();
@@ -47,8 +95,6 @@ fn palette_bg_color() {
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F04, 0x01);
     p.mem.storeb(0x3F05, 0x02);
-    // p.mem.storeb(0x3F08, 0x01);
-    // p.mem.storeb(0x3F0C, 0x01);
 
     p.mem.storeb(0x0000, 0xF0);
     p.mem.storeb(0x23C0, 0b0000_00_01);
