@@ -7,7 +7,7 @@ const SCREEN_WIDTH : usize = 256;
 #[test]
 fn palette_mirroring() {
     // testing palette mirroring
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
     p.mem.storeb(0x3F00, 0x00);
     // p.mem.storeb(0x3F01, 0x01);
     // p.mem.storeb(0x3F02, 0x02);
@@ -42,7 +42,7 @@ fn palette_mirroring() {
 #[test]
 fn palette_bg_color() {
     // testing the behavior of 0's in a pattern
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F04, 0x01);
@@ -69,7 +69,7 @@ fn palette_bg_color() {
 #[test]
 fn vram_inc() {
     // testing bit 2 of control reg
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.reg_write(CONTROL, 0b0000_0000);
     assert_eq!(p.address, 0x0000);
@@ -92,7 +92,7 @@ fn vram_inc() {
 fn nametable_choice() {
     // testing bits 0-1 of control reg
 
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F01, 0x01);
@@ -121,7 +121,7 @@ fn nametable_choice() {
 #[test]
 fn attr_table_rendering() {
     // testing how attr table is read
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F01, 0x01);
@@ -240,7 +240,7 @@ fn attr_table_rendering() {
 #[test]
 fn nametable_rendering() {
     // testing how nametable is read
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F01, 0x01);
@@ -281,7 +281,7 @@ fn nametable_rendering() {
 #[test]
 fn pattern_table_rendering() {
     // testing how a pattern gets data from palette ram
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
 
     p.mem.storeb(0x3F00, 0x00);
     p.mem.storeb(0x3F01, 0x01);
@@ -341,7 +341,7 @@ fn pattern_table_rendering() {
 
 #[test]
 fn mappings() {
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
     p.mem.storeb(0x2000, 5);
     assert_eq!(p.mem.loadb(0x3000), 5);
     p.mem.storeb(0x2EFF, 5);
@@ -354,7 +354,7 @@ fn mappings() {
 
 #[test]
 fn address_reg() {
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
     assert_eq!(p.address, 0x0000);
 
     p.reg_write(ADDRESS, 0x3F);
@@ -375,7 +375,7 @@ fn address_reg() {
 
 #[test]
 fn data_reg() {
-    let mut p = PPU::new(Cartridge::test_ref());
+    let mut p = PPU::test();
     assert_eq!(p.address, 0x0000);
 
     p.reg_write(ADDRESS, 0x3F);

@@ -129,6 +129,10 @@ impl PPU {
         }
     }
 
+    pub fn test() -> PPU {
+        PPU::new(Cartridge::test_ref())
+    }
+
     pub fn reg_read(&mut self, reg_num : u8) -> u8 {
         use self::reg_id::*;
         match reg_num {

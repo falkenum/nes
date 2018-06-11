@@ -232,7 +232,7 @@ impl CPU {
     }
 
     pub fn test() -> CPU {
-        let cart = ComponentRc::new(Cartridge::test());
+        let cart = Cartridge::test_ref();
         let ppu  = ComponentRc::new(PPU::new(cart.new_ref()));
         let apu  = ComponentRc::new(APU::new());
         let controller = ComponentRc::new(Controller::new());

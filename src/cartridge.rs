@@ -10,23 +10,19 @@ pub struct Cartridge {
 impl Cartridge {
     // used for debugging/testing in places where a Cartridge
     // placeholder is needed
-    pub fn test() -> Cartridge {
+    pub fn test_ref() -> ComponentRc<Cartridge> {
         let mut new_prgrom = Vec::new();
         new_prgrom.resize(0x8000, 0);
 
         let mut new_chrrom = Vec::new();
         new_chrrom.resize(0x2000, 0);
-
-        Cartridge {
-            prgrom_size : new_prgrom.len() as u16,
-            prgrom : new_prgrom,
-            chrrom : new_chrrom,
-            vram : [0; VRAM_SIZE as usize],
-        }
-    }
-    pub fn test_ref() -> ComponentRc<Cartridge> {
         ComponentRc::new(
-            Cartridge::test(),
+            Cartridge {
+                prgrom_size : new_prgrom.len() as u16,
+                prgrom : new_prgrom,
+                chrrom : new_chrrom,
+                vram : [0; VRAM_SIZE as usize],
+            }
         )
     }
 
