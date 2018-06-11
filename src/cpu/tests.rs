@@ -36,6 +36,12 @@ fn interrupt() {
 }
 
 #[test]
+fn ppu_regs() {
+    // let mut c = CPU::test();
+    // TODO
+}
+
+#[test]
 fn mapping() {
     let mut c = CPU::test();
 

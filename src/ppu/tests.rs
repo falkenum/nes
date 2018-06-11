@@ -5,6 +5,120 @@ use super::reg_id::*;
 const SCREEN_WIDTH : usize = 256;
 
 #[test]
+fn palette_mirroring() {
+    // testing palette mirroring
+    let mut p = PPU::new(Cartridge::test_ref());
+    p.mem.storeb(0x3F00, 0x00);
+    // p.mem.storeb(0x3F01, 0x01);
+    // p.mem.storeb(0x3F02, 0x02);
+    // p.mem.storeb(0x3F03, 0x03);
+
+    p.mem.storeb(0x3F04, 0x04);
+    p.mem.storeb(0x3F05, 0x05);
+    p.mem.storeb(0x3F08, 0x08);
+    p.mem.storeb(0x3F09, 0x09);
+
+    p.mem.storeb(0x3F15, 0x15);
+    p.mem.storeb(0x3F16, 0x16);
+    p.mem.storeb(0x3F17, 0x17);
+
+
+    assert_eq!(p.mem.loadb(0x3F04), 0x04);
+    assert_eq!(p.mem.loadb(0x3F05), 0x05);
+    assert_eq!(p.mem.loadb(0x3F08), 0x08);
+    assert_eq!(p.mem.loadb(0x3F09), 0x09);
+
+    assert_eq!(p.mem.loadb(0x3F14), 0x04);
+    assert_eq!(p.mem.loadb(0x3F15), 0x15);
+    assert_eq!(p.mem.loadb(0x3F16), 0x16);
+    assert_eq!(p.mem.loadb(0x3F17), 0x17);
+
+    assert_eq!(p.mem.loadb(0x3F18), 0x08);
+    p.mem.storeb(0x3F18, 0x18);
+    assert_eq!(p.mem.loadb(0x3F18), 0x18);
+    assert_eq!(p.mem.loadb(0x3F08), 0x18);
+}
+
+#[test]
+fn palette_bg_color() {
+    // testing the behavior of 0's in a pattern
+    let mut p = PPU::new(Cartridge::test_ref());
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F04, 0x01);
+    p.mem.storeb(0x3F05, 0x02);
+    // p.mem.storeb(0x3F08, 0x01);
+    // p.mem.storeb(0x3F0C, 0x01);
+
+    p.mem.storeb(0x0000, 0xF0);
+    p.mem.storeb(0x23C0, 0b0000_00_01);
+
+    p.render_scanline(0);
+
+    let pixel = 0;
+    assert_eq!(p.pixeldata[pixel*3+0], 188);
+    assert_eq!(p.pixeldata[pixel*3+1], 000);
+    assert_eq!(p.pixeldata[pixel*3+2], 000);
+
+    let pixel = 4;
+    assert_eq!(p.pixeldata[pixel*3+0], 124);
+    assert_eq!(p.pixeldata[pixel*3+1], 124);
+    assert_eq!(p.pixeldata[pixel*3+2], 124);
+}
+
+#[test]
+fn vram_inc() {
+    // testing bit 2 of control reg
+    let mut p = PPU::new(Cartridge::test_ref());
+
+    p.reg_write(CONTROL, 0b0000_0000);
+    assert_eq!(p.address, 0x0000);
+    p.reg_write(DATA, 0xFF);
+    assert_eq!(p.address, 0x0001);
+
+    p.reg_write(CONTROL, 0b0000_0100);
+    p.reg_write(DATA, 0xFF);
+    assert_eq!(p.address, 0x0021);
+
+    p.reg_read(DATA);
+    assert_eq!(p.address, 0x0041);
+
+    p.reg_write(CONTROL, 0b0000_0000);
+    p.reg_read(DATA);
+    assert_eq!(p.address, 0x0042);
+}
+
+#[test]
+fn nametable_choice() {
+    // testing bits 0-1 of control reg
+
+    let mut p = PPU::new(Cartridge::test_ref());
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F01, 0x01);
+
+    p.mem.storeb(0x0010, 0xFF);
+    p.mem.storeb(0x0020, 0x00);
+
+    p.mem.storeb(0x2000, 0x01);
+    p.mem.storeb(0x2400, 0x02);
+
+    let pixel = 0;
+
+    p.reg_write(CONTROL, 0x00);
+    p.render_scanline(0);
+    assert_eq!(p.pixeldata[pixel*3+0], 252);
+    assert_eq!(p.pixeldata[pixel*3+1], 000);
+    assert_eq!(p.pixeldata[pixel*3+2], 000);
+
+    p.reg_write(CONTROL, 0x01);
+    p.render_scanline(0);
+    assert_eq!(p.pixeldata[pixel*3+0], 124);
+    assert_eq!(p.pixeldata[pixel*3+1], 124);
+    assert_eq!(p.pixeldata[pixel*3+2], 124);
+}
+
+#[test]
 fn attr_table_rendering() {
     // testing how attr table is read
     let mut p = PPU::new(Cartridge::test_ref());
@@ -273,4 +387,27 @@ fn data_reg() {
 
     assert_eq!(p.mem.loadb(0x3F00), 0xFF);
     assert_eq!(p.address, 0x3F01);
+
+    p.reg_write(ADDRESS, 0x3F);
+    p.reg_write(ADDRESS, 0x00);
+    assert_eq!(p.reg_read(DATA), 0xFF);
+    assert_eq!(p.address, 0x3F01);
+
+    p.reg_write(ADDRESS, 0x20);
+    p.reg_write(ADDRESS, 0x00);
+    p.reg_write(DATA, 0x00);
+    p.reg_write(DATA, 0x01);
+    p.reg_write(DATA, 0x02);
+    assert_eq!(p.address, 0x2003);
+
+    p.reg_write(ADDRESS, 0x20);
+    p.reg_write(ADDRESS, 0x00);
+
+    // toss read buffer
+    p.reg_read(DATA);
+
+    assert_eq!(p.reg_read(DATA), 0x00);
+    assert_eq!(p.reg_read(DATA), 0x01);
+    assert_eq!(p.reg_read(DATA), 0x02);
+    assert_eq!(p.address, 0x2004);
 }

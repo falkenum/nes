@@ -17,6 +17,11 @@ pub struct PPU {
     address  : u16,
     address_first_write : bool,
     address_first_val : u8,
+
+    // required to correctly emulate reads from $2007,
+    // look at https://wiki.nesdev.com/w/index.php/PPU_registers,
+    // in the section about PPUDATA read buffer
+    data_readbuf : u8,
 }
 
 const PALETTE_RAM_SIZE  : u16 = 0x0020;
@@ -57,17 +62,32 @@ impl Memory for PPUMem {
     fn loadb(&self, addr : u16) -> u8 {
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
-            PALETTE_RAM_FIRST...PALETTE_RAM_LAST =>
-                self.palette_ram[(addr % PALETTE_RAM_SIZE) as usize],
+            PALETTE_RAM_FIRST...PALETTE_RAM_LAST => {
+                let mut addr = addr % PALETTE_RAM_SIZE;
+
+                // the palette addrs ending in 0x0, 0x4, 0x8, 0xC should mirror down
+                if addr & 0b11 == 0 {
+                    addr &= 0b1100;
+                }
+
+                self.palette_ram[addr as usize]
+            },
             _ => panic!("invalid ppu address"),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
-            PALETTE_RAM_FIRST...PALETTE_RAM_LAST =>
-                // TODO palette background mirroring
-                self.palette_ram[(addr % PALETTE_RAM_SIZE) as usize] = val,
+            PALETTE_RAM_FIRST...PALETTE_RAM_LAST => {
+                // self.palette_ram[(addr % PALETTE_RAM_SIZE) as usize] = val,
+                let mut addr = addr % PALETTE_RAM_SIZE;
+
+                if addr & 0b11 == 0 {
+                    addr &= 0b1100;
+                }
+
+                self.palette_ram[addr as usize] = val;
+            }
             _ => panic!("invalid ppu address"),
         }
     }
@@ -101,16 +121,15 @@ impl PPU {
             control  : 0,
             mask     : 0,
             oam_addr : 0,
-            // oam_data : 0,
             scroll   : 0,
             address  : 0,
             address_first_write  : true,
             address_first_val  : 0,
-            // data     : 0,
+            data_readbuf : 0,
         }
     }
 
-    pub fn reg_read(&self, reg_num : u8) -> u8 {
+    pub fn reg_read(&mut self, reg_num : u8) -> u8 {
         use self::reg_id::*;
         match reg_num {
 
@@ -121,7 +140,20 @@ impl PPU {
             OAMDATA => unimplemented!(),
             SCROLL  => unimplemented!(),
             ADDRESS => unimplemented!(),
-            DATA    => unimplemented!(),
+            DATA    => {
+                let addr = self.address;
+                self.address += if self.control >> 2 == 1 { 0x20 } else { 0x01 };
+
+                if addr < PALETTE_RAM_FIRST {
+                    let ret = self.data_readbuf;
+                    self.data_readbuf = self.mem.loadb(addr);
+                    ret
+                }
+                // if it's in palette ram, don't use the read buffer
+                else {
+                    self.mem.loadb(addr)
+                }
+            },
             _ => panic!("invalid ppu reg num"),
         }
     }
@@ -129,7 +161,7 @@ impl PPU {
     pub fn reg_write(&mut self, reg_num : u8, val : u8) {
         use self::reg_id::*;
         match reg_num {
-            CONTROL => unimplemented!(),
+            CONTROL => self.control = val,
             MASK    => unimplemented!(),
             STATUS  => unimplemented!(),
             OAMADDR => unimplemented!(),
@@ -150,13 +182,15 @@ impl PPU {
             },
             DATA    => {
                 self.mem.storeb(self.address, val);
-                self.address += 1;
+                self.address += if self.control >> 2 == 1 { 0x20 } else { 0x01 };
             },
             _ => panic!("invalid ppu reg num"),
         }
     }
 
     fn render_scanline(&mut self, scanline : u16) {
+        // TODO palette 0 always goes to 0x3F00
+        // palette mirrors
         // control:
         // base nt
         // vram increment
@@ -165,16 +199,16 @@ impl PPU {
         // ext stuff (ignore)
         // generate nmi
 
+        let nt_base_bits = (self.control & 0b00000011) as u16;
+        let nt_base = 0x2000 | (nt_base_bits << 10);
+
         let nt_row = (scanline & 0b11111_000) >> 3;
         let tile_row = scanline & 0b00000_111;
-
-        let nt_base_bits = (self.control & 0b00000011) as u16;
-        let nt_base = 0x2000 | (nt_base_bits << 8);
 
         debug_assert!(nt_base == 0x2000 ||
                       nt_base == 0x2400 ||
                       nt_base == 0x2800 ||
-                      nt_base == 0x2C00, "nt_base: {:x}", nt_base);
+                      nt_base == 0x2C00, "invalid nt_base: 0x{:x}", nt_base);
 
         for nt_col in 0..32 {
             let nt_addr = nt_base + nt_col + 32*nt_row;
@@ -219,7 +253,10 @@ impl PPU {
                     }
                 };
 
-                let palette_i = palette_high | palette_low;
+
+                // 0's in a pattern always refers to universal background 0x3F00
+                let palette_i = palette_low |
+                    if palette_low == 0 {0} else {palette_high};
 
                 debug_assert!(palette_i < 16,
                             "invalid palette_i {:b}", palette_i);

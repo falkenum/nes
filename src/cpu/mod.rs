@@ -46,7 +46,7 @@ impl Memory for CPUMem {
             RAM_FIRST...RAM_LAST => self.ram[(addr % RAM_SIZE) as usize],
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
             PPUREGS_FIRST...PPUREGS_LAST =>
-                self.ppu.borrow().reg_read((addr % PPUREGS_SIZE) as u8),
+                self.ppu.borrow_mut().reg_read((addr % PPUREGS_SIZE) as u8),
             _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
         }
     }

@@ -11,11 +11,10 @@ romfile="tests/test.nes"
 srcfile="tests/test.s"
 ./assembler -o $romfile $srcfile
 
-
 # chrfile=`echo $1 | sed 's/\.s/\.chr/'`
 # cat $chrfile >> $romfile
+fsize=`stat --printf="%s" $romfile`
 
-# 0b0110_0110
 echo -n -e '\x66' >> $romfile
 echo -n -e '\x7f' >> $romfile
 echo -n -e '\xff' >> $romfile
@@ -34,7 +33,43 @@ echo -n -e '\x7e' >> $romfile
 echo -n -e '\x3c' >> $romfile
 echo -n -e '\x18' >> $romfile
 
+echo -n -e '\x3C' >> $romfile
+echo -n -e '\x3C' >> $romfile
+echo -n -e '\xC3' >> $romfile
+echo -n -e '\xC3' >> $romfile
+echo -n -e '\xC3' >> $romfile
+echo -n -e '\xC3' >> $romfile
+echo -n -e '\x3C' >> $romfile
+echo -n -e '\x3C' >> $romfile
+
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+
+echo -n -e '\xFC' >> $romfile
+echo -n -e '\xFC' >> $romfile
+echo -n -e '\xC0' >> $romfile
+echo -n -e '\xF8' >> $romfile
+echo -n -e '\xF8' >> $romfile
+echo -n -e '\xC0' >> $romfile
+echo -n -e '\xC0' >> $romfile
+echo -n -e '\xC0' >> $romfile
+
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+echo -n -e '\x00' >> $romfile
+
 fsize=`stat --printf="%s" $romfile`
 for i in `seq 1 $((40976 - $fsize))`; do
-	echo -n -e '\xff' >> $romfile
+	echo -n -e '\x00' >> $romfile
 done

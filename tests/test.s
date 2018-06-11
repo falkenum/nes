@@ -24,20 +24,10 @@ nmi
   ldx #$21
   stx $2007
 
-  ;; lda #$20
-  ;; sta $2006
-  ;; lda #$00
-  ;; sta $2006
-
-  ;; lda #$00
-  ;; sta $2007
-
-  ;; lda #$23
-  ;; sta $2006
-  ;; lda #$C0
-  ;; sta $2006
-  ;; lda #$00
-  ;; sta $2007
+  ;; no scrolling
+  ldx #$00
+  stx $2005
+  stx $2005
 
   rti
 
@@ -52,8 +42,20 @@ reset
 
   ldx #$80
 	stx $2000
-  ldx #$1A
+  ldx #$1E
 	stx $2001
+
+  ;; init OAM
+  ldx #$00
+  stx $2003
+
+  ldx #$FF
+  ldy #$FF
+-
+  stx $2004
+  dey
+  cpy #$FF
+  bne -
 
 	jmp main
 
