@@ -113,6 +113,11 @@ fn fill_color(r : u8, g : u8, b : u8) -> [u8; SCREEN_SIZE] {
     data
 }
 
+fn concat_palette_bits(low : u8, high : u8) -> u8 {
+    // 0's in a pattern always refers to universal background 0x3F00
+    low | if low == 0 {0} else {high}
+}
+
 impl PPU {
     pub fn new(cart : ComponentRc<Cartridge>) -> PPU {
         PPU {
@@ -177,7 +182,7 @@ impl PPU {
                 self.oam[self.oam_addr as usize] = val;
                 self.oam_addr = self.oam_addr.wrapping_add(1);
             },
-            SCROLL  => unimplemented!(),
+            SCROLL  => (), // FIXME
             ADDRESS => {
                 if self.address_first_write {
                     self.address_first_val = val;
@@ -199,20 +204,64 @@ impl PPU {
         }
     }
 
-    fn render_scanline(&mut self, scanline : u16) {
+    // fn render_tile_row(x : u8, y : u8, render_style : RenderStyle) {
+    // }
+
+    fn set_pixel(&mut self, x : u8, y : u8, color : usize) {
+        let x = x as usize;
+        let y = y as usize;
+
+        let i = (y*256 + x) * 3;
+
+        debug_assert!(color < 64, "invalid color {:x}", color);
+
+        let color_bgr = PALETTE_BGR[color];
+
+        self.pixeldata[i + 0] = color_bgr.0;
+        self.pixeldata[i + 1] = color_bgr.1;
+        self.pixeldata[i + 2] = color_bgr.2;
+    }
+
+    // returns high two bits for bg tile color
+    fn get_bg_tile_attr(&self, nt_addr : u16) -> u8 {
+        // 10 bit nametable index (1024 bytes per nt)
+        let nt_index = nt_addr & 0x3FF;
+        let at_index = ((nt_index & 0b11100_00000) >> 4) |
+                        ((nt_index & 0b00000_11100) >> 2);
+
+        let at_base = (nt_addr & 0xFC00) + 0x3C0;
+
+        let at_val = self.mem.loadb(at_base + at_index);
+
+        let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
+                                    ((nt_index & 0b00000_00010) >> 1);
+
+        match tile_attr_quadrant {
+            // top left
+            0 => (at_val & 0b00000011) << 2,
+            // top right
+            1 => (at_val & 0b00001100) << 0,
+            // bottom left
+            2 => (at_val & 0b00110000) >> 2,
+            // bottom right
+            3 => (at_val & 0b11000000) >> 4,
+            _ => panic!("messed up somewhere, quadrant: {}",
+                            tile_attr_quadrant)
+        }
+    }
+
+    fn render_scanline_bg(&mut self, scanline : u8) {
+
         // control:
-        // base nt
-        // vram increment
+
         // sprite pt
-        // bg pt
-        // ext stuff (ignore)
         // generate nmi
 
         let nt_base_bits = (self.control & 0b00000011) as u16;
         let nt_base = 0x2000 | (nt_base_bits << 10);
 
-        let nt_row = (scanline & 0b11111_000) >> 3;
-        let tile_row = scanline & 0b00000_111;
+        let nt_row = ((scanline & 0b11111_000) >> 3) as u8;
+        let tile_row = (scanline & 0b00000_111) as u8;
 
         debug_assert!(nt_base == 0x2000 ||
                       nt_base == 0x2400 ||
@@ -220,87 +269,103 @@ impl PPU {
                       nt_base == 0x2C00, "invalid nt_base: 0x{:x}", nt_base);
 
         for nt_col in 0..32 {
-            let nt_addr = nt_base + nt_col + 32*nt_row;
+            let nt_addr = nt_base + nt_col as u16 + 32*(nt_row as u16);
             let tile_num = self.mem.loadb(nt_addr);
 
             // add offset if pt is at 0x1000
-            let pt_base = (self.control as u16 & 0b00010000) << 8;
+            let pt_base = (self.control as u16 & 0x10) << 8;
 
             let tile_addr = pt_base + ((tile_num as u16) << 4);
 
-            let pattern_low  = self.mem.loadb(tile_addr + tile_row);
-            let pattern_high = self.mem.loadb(tile_addr + tile_row + 8);
+            let pattern_low  = self.mem.loadb(tile_addr + tile_row as u16);
+            let pattern_high = self.mem.loadb(tile_addr + tile_row as u16 + 8);
 
             // loop through pairs of numbers like (0, 7), (1, 6), (2, 5), etc
             for (tile_col, shamt) in (0..8).rev().enumerate() {
 
+                // can't figure out how to make it u8 by default...
+                let tile_col = tile_col as u8;
+
                 // low two bits of palette index, from pattern table
                 let palette_low = ((pattern_low  >> shamt) & 0b1) |
-                                (((pattern_high >> shamt) & 0b1) << 1);
+                                 (((pattern_high >> shamt) & 0b1) << 1);
 
-                let palette_high = {
+                let palette_high = self.get_bg_tile_attr(nt_addr);
 
-                    // 10 bit nametable index (1024 bytes per nt)
-                    let nt_index = nt_addr & 0x3FF;
-                    let at_index = ((nt_index & 0b11100_00000) >> 4) |
-                                   ((nt_index & 0b00000_11100) >> 2);
+                let palette_i = concat_palette_bits(palette_low, palette_high);
 
-                    let at_base = nt_base + 0x3C0;
+                let color = self.get_palette_color(palette_i);
 
-                    let at_val = self.mem.loadb(at_base + at_index);
+                debug_assert!(nt_row < 30);
+                debug_assert!(nt_col < 32);
+                debug_assert!(tile_row < 8);
+                debug_assert!(tile_col < 8);
 
-                    let tile_attr_quadrant = ((nt_index & 0b00010_00000) >> 5) |
-                                             ((nt_index & 0b00000_00010) >> 1);
+                let x = nt_col*8 + tile_col;
+                let y = nt_row*8 + tile_row;
 
-                    match tile_attr_quadrant {
-                        // top left
-                        0 => (at_val & 0b00000011) << 2,
-                        // top right
-                        1 => (at_val & 0b00001100) << 0,
-                        // bottom left
-                        2 => (at_val & 0b00110000) >> 2,
-                        // bottom right
-                        3 => (at_val & 0b11000000) >> 4,
-                        _ => panic!("messed up somewhere, quadrant: {}",
-                                     tile_attr_quadrant)
-                    }
-                };
+                debug_assert!(y < 240);
 
+                self.set_pixel(x, y, color);
 
-                // 0's in a pattern always refers to universal background 0x3F00
-                let palette_i = palette_low |
-                    if palette_low == 0 {0} else {palette_high};
-
-                debug_assert!(palette_i < 16,
-                            "invalid palette_i {:b}", palette_i);
-
-                let color =
-                    self.mem.loadb(0x3F00 + palette_i as u16) as usize;
-
-                debug_assert!(color < 64, "invalid color {:x}", color);
-
-                let color_bgr = PALETTE_BGR[color];
-
-                let tile_row = tile_row as usize;
-                let tile_col = tile_col as usize;
-                let nt_row = nt_row as usize;
-                let nt_col = nt_col as usize;
-
-                let x = nt_row*256*3*8 + nt_col*8*3 +
-                        tile_row*256*3 + tile_col*3;
-
-                self.pixeldata[x + 0] = color_bgr.0;
-                self.pixeldata[x + 1] = color_bgr.1;
-                self.pixeldata[x + 2] = color_bgr.2;
             }
         }
+    }
 
+    fn get_palette_color(&self, palette_i : u8) -> usize {
+        self.mem.loadb(0x3F00 + palette_i as u16) as usize
+    }
+
+
+    fn render_scanline_sprites(&mut self, scanline : u8) {
+
+        // search for sprites where sprite.y <= scanline < sprite.y + 8
+        // skip sprites where sprite.y >= 0xEF
+
+        // draw sprite 0 at pos 0,0
+        let x = self.oam[3];
+        let y = self.oam[0];
+        // let _attributes = self.oam[2];
+        let tile_num = self.oam[1];
+
+        // TODO
+        let pt_base = 0x0000;
+
+        let tile_addr = pt_base + ((tile_num as u16) << 4);
+
+        // if y <= scanline && scanline < y + 8 {
+        // }
+        let sprite_row = scanline - y;
+
+        let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
+        let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
+
+        for (sprite_col, shamt) in (0..8).rev().enumerate() {
+            let sprite_col = sprite_col as u8;
+
+            // low two bits of palette index, from pattern table
+            let palette_low = ((pattern_low  >> shamt) & 0b1) |
+            (((pattern_high >> shamt) & 0b1) << 1);
+
+            // TODO
+            let palette_high = 0;
+
+            let palette_i = concat_palette_bits(palette_low, palette_high);
+            let color = self.get_palette_color(palette_i);
+
+            self.set_pixel(sprite_col, sprite_row, color);
+        }
+
+
+        // if y < 0xEF {
+        // }
     }
 
     pub fn render(&mut self, picture : &mut super::graphics::Picture) {
         for i in 0..240 {
-            self.render_scanline(i);
+            self.render_scanline_bg(i);
         }
+        self.render_scanline_sprites(0);
 
         picture.update(&self.pixeldata);
     }

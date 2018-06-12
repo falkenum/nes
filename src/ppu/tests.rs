@@ -34,7 +34,7 @@ fn bg_pt_base() {
     // use pt at 0x0000
     p.control = 0x00;
 
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
 
     let pixel = 0;
     assert_eq!(p.pixeldata[pixel*3+0], 188);
@@ -44,7 +44,7 @@ fn bg_pt_base() {
     // use pt at 0x1000
     p.control = 0x10;
 
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
 
     let pixel = 0;
     assert_eq!(p.pixeldata[pixel*3+0], 252);
@@ -99,7 +99,7 @@ fn palette_bg_color() {
     p.mem.storeb(0x0000, 0xF0);
     p.mem.storeb(0x23C0, 0b0000_00_01);
 
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
 
     let pixel = 0;
     assert_eq!(p.pixeldata[pixel*3+0], 188);
@@ -152,13 +152,13 @@ fn nametable_choice() {
     let pixel = 0;
 
     p.reg_write(CONTROL, 0x00);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     assert_eq!(p.pixeldata[pixel*3+0], 252);
     assert_eq!(p.pixeldata[pixel*3+1], 000);
     assert_eq!(p.pixeldata[pixel*3+2], 000);
 
     p.reg_write(CONTROL, 0x01);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     assert_eq!(p.pixeldata[pixel*3+0], 124);
     assert_eq!(p.pixeldata[pixel*3+1], 124);
     assert_eq!(p.pixeldata[pixel*3+2], 124);
@@ -189,7 +189,7 @@ fn attr_table_rendering() {
 
     // four rows of tiles
     for i in 0..32 {
-        p.render_scanline(i);
+        p.render_scanline_bg(i);
     }
 
     // top left
@@ -272,7 +272,7 @@ fn attr_table_rendering() {
         assert_eq!(p.pixeldata[pixel*3+2], 000);
     }
 
-    p.render_scanline(239);
+    p.render_scanline_bg(239);
     // last tile group
     // top right, this last row is a 4*2 tile group
     for i in 240..256 {
@@ -299,7 +299,7 @@ fn nametable_rendering() {
     p.mem.storeb(0x2000, 0x00);
     p.mem.storeb(0x2001, 0xFF);
 
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..8 {
         assert_eq!(p.pixeldata[i*3+0], 124);
         assert_eq!(p.pixeldata[i*3+1], 124);
@@ -314,7 +314,7 @@ fn nametable_rendering() {
     p.mem.storeb(0x0AAF, 0xFF);
     p.mem.storeb(0x23BF, 0xAA);
 
-    p.render_scanline(239);
+    p.render_scanline_bg(239);
     for i in 248..256 {
         assert_eq!(p.pixeldata[239*256*3+i*3+0], 188);
         assert_eq!(p.pixeldata[239*256*3+i*3+1], 000);
@@ -336,7 +336,7 @@ fn pattern_table_rendering() {
 
     // the pt, nt, and at are filled with 0's
     // the whole scanline rendered should be filled with the universal bg at 0x3F00
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..SCREEN_WIDTH {
         assert_eq!(p.pixeldata[i*3+0], 124);
         assert_eq!(p.pixeldata[i*3+1], 124);
@@ -345,7 +345,7 @@ fn pattern_table_rendering() {
 
     // color 1
     p.mem.storeb(0x0000, 0xFF);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..8 {
         assert_eq!(p.pixeldata[i*3+0], 252);
         assert_eq!(p.pixeldata[i*3+1], 000);
@@ -354,7 +354,7 @@ fn pattern_table_rendering() {
 
     // color 3
     p.mem.storeb(0x0008, 0xFF);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..8 {
         assert_eq!(p.pixeldata[i*3+0], 188);
         assert_eq!(p.pixeldata[i*3+1], 040);
@@ -363,7 +363,7 @@ fn pattern_table_rendering() {
 
     // color 2
     p.mem.storeb(0x0000, 0x00);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..8 {
         assert_eq!(p.pixeldata[i*3+0], 188);
         assert_eq!(p.pixeldata[i*3+1], 000);
@@ -372,7 +372,7 @@ fn pattern_table_rendering() {
 
     // multiple colors in one row of a tile
     p.mem.storeb(0x0000, 0x0F);
-    p.render_scanline(0);
+    p.render_scanline_bg(0);
     for i in 0..4 {
         assert_eq!(p.pixeldata[i*3+0], 188);
         assert_eq!(p.pixeldata[i*3+1], 000);
