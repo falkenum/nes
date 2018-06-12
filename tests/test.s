@@ -57,7 +57,6 @@ nmi
     cpx #$00
     bne +
 
-
     ldy #$00                    ; pass
 +
     lda #$20
@@ -88,15 +87,15 @@ reset
     sei
     cld
 
-    bit $2002
--
-    	bit $2002
-    	bpl -
+;;     bit $2002
+;; -
+;;     	bit $2002
+;;     	bpl -
 
-    ldx #$80
-    stx $2000
-    ldx #$1E
-    stx $2001
+;;     ldx #$80
+;;     stx $2000
+;;     ldx #$1E
+;;     stx $2001
 
     ;; init OAM
     ldx #$00

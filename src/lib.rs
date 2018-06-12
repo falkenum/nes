@@ -39,22 +39,32 @@ pub fn run_emulator(cart : Cartridge) {
     let picture_creator = screen.picture_creator();
     let mut picture = picture_creator.create_picture();
 
-    cpu.send_nmi();
-    for _ in 0..13 {
-        cpu.step();
-    }
 
-    ppu.borrow_mut().render(&mut picture);
-    screen.update_and_show(&picture);
-
-    // cpu.reset();
     use std::time::SystemTime;
     let start = SystemTime::now();
-    let mut cpu_cycles : usize = 0;
+    let mut temp_cpu_cycles : usize = 0;
     let mut num_frames : usize = 0;
 
+    cpu.send_reset();
+
     'running: loop {
-        cpu_cycles += cpu.step() as usize;
+
+        // ppu rendering
+        ppu.borrow_mut().render(&mut picture);
+        screen.update_and_show(&picture);
+
+        // cpu catch up
+        while temp_cpu_cycles < 114*241 {
+            temp_cpu_cycles += cpu.step() as usize;
+        }
+        temp_cpu_cycles = 0;
+
+        // start vblank
+        cpu.send_nmi();
+        while temp_cpu_cycles < 114*20 {
+            temp_cpu_cycles += cpu.step() as usize;
+        }
+        temp_cpu_cycles = 0;
 
         for event in input.events() {
             match event {
@@ -70,17 +80,11 @@ pub fn run_emulator(cart : Cartridge) {
 
     let duration = start.elapsed().unwrap();
 
-    let freq = cpu_cycles as f64 /
-        (duration.as_secs() as f64 +
-         (duration.subsec_nanos() as f64) / 1_000_000_000f64);
-
-    println!("{} cycles/sec", freq);
-
     let freq = num_frames as f64 /
         (duration.as_secs() as f64 +
          (duration.subsec_nanos() as f64) / 1_000_000_000f64);
 
-    println!("{} frames/sec", freq);
+    println!("{:.2} frames/sec", freq);
 }
 
 trait Memory {
