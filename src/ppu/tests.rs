@@ -1,8 +1,197 @@
 use super::{ PPU, Memory, Cartridge };
-// use super::PALETTE_BGR;
 use super::reg_id::*;
 
 const SCREEN_WIDTH : usize = 256;
+
+// TODO test sprite different pt base
+// TODO test 8x16 sprite, flipping
+// TODO test multiple sprites
+// TODO test sprite and bg rendering together, priority
+
+#[test]
+fn sprite_and_bg_rendering() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x01;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0001, 0xFF);
+    p.mem.storeb(0x0018, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F01, 0x01);
+
+    p.mem.storeb(0x3F11, 0x11);
+    p.mem.storeb(0x3F12, 0x12);
+    p.mem.storeb(0x3F13, 0x13);
+
+    p.render_scanline_bg(1);
+    let pixel = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(pixel + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(pixel + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(pixel + i)*3+2], 000);
+    }
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 088);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // bg after the sprite should be unchanged
+    assert_eq!(p.pixeldata[(pixel + 9)*3+0], 252);
+
+    // // give bg priority
+    // p.oam[2] = 0x20;
+}
+
+#[test]
+fn sprite_tiles() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x01;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x0018, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
+
+#[test]
+fn sprite_palette() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x01;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+    p.mem.storeb(0x3F15, 0x05);
+    p.mem.storeb(0x3F16, 0x06);
+    p.mem.storeb(0x3F17, 0x07);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 032);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 168);
+    }
+}
+
+#[test]
+fn sprite_horiz_flip() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+
+    // horizontal flip
+    p.oam[2] = 0x40;
+
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0x0F);
+    p.mem.storeb(0x0008, 0xF0);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..4 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+    for i in 4..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // horizontal flip at the last col
+    p.oam[3] = 0xFF;
+    p.render_scanline_sprites(1);
+    let sprite_start = 256 + 255;
+    assert_eq!(p.pixeldata[sprite_start*3+0], 252);
+    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+}
+
+#[test]
+fn sprite_vert_flip() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+
+    // vertical flip
+    p.oam[2] = 0x80;
+
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x000F, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    p.render_scanline_sprites(8);
+    let sprite_start = 256*8;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
 
 #[test]
 fn sprite_x() {
@@ -21,7 +210,6 @@ fn sprite_x() {
 
     p.mem.storeb(0x3F00, 0x00);
 
-    p.mem.storeb(0x3F10, 0xFF);
     p.mem.storeb(0x3F11, 0x01);
     p.mem.storeb(0x3F12, 0x02);
     p.mem.storeb(0x3F13, 0x03);
@@ -60,7 +248,6 @@ fn sprite_y() {
 
     p.mem.storeb(0x3F00, 0x00);
 
-    p.mem.storeb(0x3F10, 0xFF);
     p.mem.storeb(0x3F11, 0x01);
     p.mem.storeb(0x3F12, 0x02);
     p.mem.storeb(0x3F13, 0x03);
@@ -110,7 +297,6 @@ fn basic_sprite_rendering() {
 
     p.mem.storeb(0x3F00, 0x00);
 
-    p.mem.storeb(0x3F10, 0xFF);
     p.mem.storeb(0x3F11, 0x01);
     p.mem.storeb(0x3F12, 0x02);
     p.mem.storeb(0x3F13, 0x03);
@@ -227,6 +413,9 @@ fn palette_mirroring() {
     p.mem.storeb(0x3F18, 0x18);
     assert_eq!(p.mem.loadb(0x3F18), 0x18);
     assert_eq!(p.mem.loadb(0x3F08), 0x18);
+
+    p.mem.storeb(0x3F10, 0xFF);
+    assert_eq!(p.mem.loadb(0x3F00), 0xFF);
 }
 
 #[test]

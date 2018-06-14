@@ -7,6 +7,7 @@ mod tests;
 
 const OAM_SIZE : usize = 256;
 
+// TODO byte 2 of sprites anded with E3
 pub struct PPU {
     mem                 : PPUMem,
     oam                 : [u8; OAM_SIZE],
@@ -316,19 +317,21 @@ impl PPU {
         self.mem.loadb(0x3F00 + palette_i as u16) as usize
     }
 
-
     fn render_scanline_sprites(&mut self, scanline : u8) {
         debug_assert!(scanline < 240);
-        // search for sprites where sprite.y + 1 <= scanline < sprite.y + 8 + 1
-        // skip sprites where sprite.y >= 0xEF
 
-        // draw sprite 0 at pos 0,0
+        // search for sprites where sprite.y + 1 <= scanline < sprite.y + 8 + 1
+
         let x = self.oam[3];
 
         // sprites are delayed 1 scanline
         let y = self.oam[0] + 1;
 
-        // let _attributes = self.oam[2];
+        let attributes = self.oam[2];
+        let vert_flip = (attributes & 0x80) == 0x80;
+        let horiz_flip = (attributes & 0x40) == 0x40;
+        let palette_high = 0x10 | ((attributes & 0x3) << 2);
+
         let tile_num = self.oam[1];
 
         // TODO
@@ -337,22 +340,34 @@ impl PPU {
         let tile_addr = pt_base + ((tile_num as u16) << 4);
 
         if y <= scanline && scanline < y + 8 {
-            let sprite_row = scanline - y;
+
+            let sprite_row = if vert_flip {
+                7 - (scanline - y)
+            }
+            else {
+                scanline - y
+            };
 
             let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
             let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
 
             let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
 
-            for (sprite_col, shamt) in (0..end_col).rev().enumerate() {
+            // if horiz flip, reverse pattern bits
+            let shamt_list : Vec<(usize, u8)> = if horiz_flip {
+                (0..end_col).enumerate().collect()
+            }
+            else {
+                (0..end_col).rev().enumerate().collect()
+            };
+
+
+            for (sprite_col, shamt) in shamt_list {
                 let sprite_col = sprite_col as u8;
 
                 // low two bits of palette index, from pattern table
                 let palette_low = ((pattern_low  >> shamt) & 0b1) |
                                  (((pattern_high >> shamt) & 0b1) << 1);
-
-                // TODO
-                let palette_high = 0x10;
 
                 let palette_i = concat_palette_bits(palette_low, palette_high);
                 let color = self.get_palette_color(palette_i);
