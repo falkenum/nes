@@ -5,6 +5,143 @@ use super::reg_id::*;
 const SCREEN_WIDTH : usize = 256;
 
 #[test]
+fn sprite_x() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x00;
+    // change x
+    p.oam[3] = 0x01;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x000F, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+
+    p.mem.storeb(0x3F10, 0xFF);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256 + 1;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // last column
+    p.oam[3] = 0xFF;
+    p.render_scanline_sprites(1);
+    let sprite_start = 256 + 255;
+    assert_eq!(p.pixeldata[sprite_start*3+0], 252);
+    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+}
+
+#[test]
+fn sprite_y() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // change y
+    p.oam[0] = 0x01;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x000F, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+
+    p.mem.storeb(0x3F10, 0xFF);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    // this scanline shouldn't have anything
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // testing change in y
+    p.render_scanline_sprites(2);
+    let sprite_start = 256*2;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // sprite on last scanline
+    p.oam[0] = 0xEE;
+    p.render_scanline_sprites(239);
+    let sprite_start = 256*239;
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
+
+#[test]
+fn basic_sprite_rendering() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x000F, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+
+    p.mem.storeb(0x3F10, 0xFF);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // check that only 8 pixels were changed
+    assert_eq!(p.pixeldata[(sprite_start + 8)*3+0], 000);
+
+    // bottom row of sprite
+    p.render_scanline_sprites(8);
+    let sprite_start = 256*8;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    // check that only 8 pixels were changed
+    assert_eq!(p.pixeldata[(sprite_start + 8)*3+0], 000);
+}
+
+#[test]
 fn oam_regs() {
     let mut p = PPU::test();
     p.reg_write(OAMADDR, 0x00);
@@ -18,6 +155,11 @@ fn oam_regs() {
 
     p.reg_write(OAMDATA, 0xFF);
     assert_eq!(p.oam[0x01], 0xFF);
+
+    p.reg_write(OAMADDR, 0xFF);
+    p.reg_write(OAMDATA, 0xFF);
+    assert_eq!(p.oam_addr, 0x00);
+    assert_eq!(p.oam[0xFF], 0xFF);
 }
 
 #[test]

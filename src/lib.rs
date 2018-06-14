@@ -42,7 +42,7 @@ pub fn run_emulator(cart : Cartridge) {
 
     use std::time::SystemTime;
     let start = SystemTime::now();
-    let mut temp_cpu_cycles : usize = 0;
+    let mut cpu_cycles : usize = 0;
     let mut num_frames : usize = 0;
 
     cpu.send_reset();
@@ -54,17 +54,17 @@ pub fn run_emulator(cart : Cartridge) {
         screen.update_and_show(&picture);
 
         // cpu catch up
-        while temp_cpu_cycles < 114*241 {
-            temp_cpu_cycles += cpu.step() as usize;
+        while cpu_cycles < 114*241 {
+            cpu_cycles += cpu.step() as usize;
         }
-        temp_cpu_cycles = 0;
+        cpu_cycles = 0;
 
         // start vblank
         cpu.send_nmi();
-        while temp_cpu_cycles < 114*20 {
-            temp_cpu_cycles += cpu.step() as usize;
+        while cpu_cycles < 114*20 {
+            cpu_cycles += cpu.step() as usize;
         }
-        temp_cpu_cycles = 0;
+        cpu_cycles = 0;
 
         for event in input.events() {
             match event {
@@ -74,7 +74,7 @@ pub fn run_emulator(cart : Cartridge) {
                     controller.borrow_mut().update(action, button),
             }
         }
-        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        // std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
         num_frames += 1;
     }
 

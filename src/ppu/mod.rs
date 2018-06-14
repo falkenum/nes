@@ -126,7 +126,7 @@ impl PPU {
                 palette_ram : [0; PALETTE_RAM_SIZE as usize],
             },
             pixeldata : [0; SCREEN_SIZE],
-            oam       : [0; OAM_SIZE],
+            oam       : [0xFF; OAM_SIZE], // init to FF so sprites are hidden
             control  : 0,
             mask     : 0,
             oam_addr : 0,
@@ -182,7 +182,7 @@ impl PPU {
                 self.oam[self.oam_addr as usize] = val;
                 self.oam_addr = self.oam_addr.wrapping_add(1);
             },
-            SCROLL  => (), // FIXME
+            SCROLL  => unimplemented!(),
             ADDRESS => {
                 if self.address_first_write {
                     self.address_first_val = val;
@@ -318,13 +318,16 @@ impl PPU {
 
 
     fn render_scanline_sprites(&mut self, scanline : u8) {
-
-        // search for sprites where sprite.y <= scanline < sprite.y + 8
+        debug_assert!(scanline < 240);
+        // search for sprites where sprite.y + 1 <= scanline < sprite.y + 8 + 1
         // skip sprites where sprite.y >= 0xEF
 
         // draw sprite 0 at pos 0,0
         let x = self.oam[3];
-        let y = self.oam[0];
+
+        // sprites are delayed 1 scanline
+        let y = self.oam[0] + 1;
+
         // let _attributes = self.oam[2];
         let tile_num = self.oam[1];
 
@@ -333,32 +336,30 @@ impl PPU {
 
         let tile_addr = pt_base + ((tile_num as u16) << 4);
 
-        // if y <= scanline && scanline < y + 8 {
-        // }
-        let sprite_row = scanline - y;
+        if y <= scanline && scanline < y + 8 {
+            let sprite_row = scanline - y;
 
-        let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
-        let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
+            let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
+            let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
 
-        for (sprite_col, shamt) in (0..8).rev().enumerate() {
-            let sprite_col = sprite_col as u8;
+            let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
 
-            // low two bits of palette index, from pattern table
-            let palette_low = ((pattern_low  >> shamt) & 0b1) |
-            (((pattern_high >> shamt) & 0b1) << 1);
+            for (sprite_col, shamt) in (0..end_col).rev().enumerate() {
+                let sprite_col = sprite_col as u8;
 
-            // TODO
-            let palette_high = 0;
+                // low two bits of palette index, from pattern table
+                let palette_low = ((pattern_low  >> shamt) & 0b1) |
+                                 (((pattern_high >> shamt) & 0b1) << 1);
 
-            let palette_i = concat_palette_bits(palette_low, palette_high);
-            let color = self.get_palette_color(palette_i);
+                // TODO
+                let palette_high = 0x10;
 
-            self.set_pixel(sprite_col, sprite_row, color);
+                let palette_i = concat_palette_bits(palette_low, palette_high);
+                let color = self.get_palette_color(palette_i);
+
+                self.set_pixel(sprite_col + x, scanline, color);
+            }
         }
-
-
-        // if y < 0xEF {
-        // }
     }
 
     pub fn render(&mut self, picture : &mut super::graphics::Picture) {
