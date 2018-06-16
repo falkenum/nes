@@ -36,46 +36,21 @@ nmi
     stx $2007
     stx $2007
 
-;;; asserts
-    ldy #$02
-
-    lda #$00
-    sta $2006
-    sta $2006
-
-    ldx $2007                   ; discard readbuf
-
-    ldx $2007
-    cpx #$66
-    bne +
-
-    ldx $2007
-    cpx #$7F
-    bne +
-
-    ldx $2000
-    cpx #$00
-    bne +
-
-
-    ldy #$00                    ; pass
-+
-    lda #$20
-    sta $2006
-    lda #$00
-    sta $2006
-
-    sty $2007
-
 ;;; OAM
     ldx #$00
     stx $2003
+
     ldx #$00
-    stx $2004
+    stx $2004                   ; y
+
     ldx #$00
-    stx $2004
-    stx $2004
-    stx $2004
+    stx $2004                   ; tile
+
+    ldx #$20
+    stx $2004                   ; attr
+
+    ldx #$00
+    stx $2004                   ; x
 
 ;;; no scrolling
     ldx #$00

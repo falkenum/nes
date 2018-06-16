@@ -119,6 +119,11 @@ fn concat_palette_bits(low : u8, high : u8) -> u8 {
     low | if low == 0 {0} else {high}
 }
 
+enum SpriteRenderResult {
+    Rendered,
+    Overflowed,
+}
+
 impl PPU {
     pub fn new(cart : ComponentRc<Cartridge>) -> PPU {
         PPU {
@@ -258,6 +263,8 @@ impl PPU {
         // sprite pt
         // generate nmi
 
+        // TODO scrolling
+
         let nt_base_bits = (self.control & 0b00000011) as u16;
         let nt_base = 0x2000 | (nt_base_bits << 10);
 
@@ -317,71 +324,94 @@ impl PPU {
         self.mem.loadb(0x3F00 + palette_i as u16) as usize
     }
 
+    // TODO sprite zero hit
+    // TODO sprite bg priority
+    // TODO sprite overlap priority
+
+    fn render_sprite(&mut self, sprite_num : u8, scanline : u8)
+                     -> SpriteRenderResult {
+
+        let sprite_i = (sprite_num*4) as usize;
+        let y = self.oam[sprite_i+0] + 1;
+        let x = self.oam[sprite_i+3];
+
+        let attributes = self.oam[sprite_i+2];
+        let vert_flip = (attributes & 0x80) == 0x80;
+        let horiz_flip = (attributes & 0x40) == 0x40;
+        let palette_high = 0x10 | ((attributes & 0x3) << 2);
+
+        let tile_num = self.oam[sprite_i+1];
+
+        let pt_base = (self.control as u16 & 0x08) << 9;
+        debug_assert!(pt_base == 0x0000 || pt_base == 0x1000);
+
+        let tile_addr = pt_base + ((tile_num as u16) << 4);
+
+        let sprite_row = if vert_flip {
+            7 - (scanline - y)
+        }
+        else {
+            scanline - y
+        };
+
+        let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
+        let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
+
+        let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
+
+        // if horiz flip, reverse pattern bits
+        let shamt_list : Vec<(usize, u8)> = if horiz_flip {
+            (0..end_col).enumerate().collect()
+        }
+        else {
+            (0..end_col).rev().enumerate().collect()
+        };
+
+
+        for (sprite_col, shamt) in shamt_list {
+            let sprite_col = sprite_col as u8;
+
+            // low two bits of palette index, from pattern table
+            let palette_low = ((pattern_low  >> shamt) & 0b1) |
+                                (((pattern_high >> shamt) & 0b1) << 1);
+
+            let palette_i = concat_palette_bits(palette_low, palette_high);
+            let color = self.get_palette_color(palette_i);
+
+            self.set_pixel(sprite_col + x, scanline, color);
+        }
+
+        SpriteRenderResult::Rendered
+    }
+
+    // requires that the bg for the scanline is already rendered
+    // (due to priority)
     fn render_scanline_sprites(&mut self, scanline : u8) {
         debug_assert!(scanline < 240);
 
         // search for sprites where sprite.y + 1 <= scanline < sprite.y + 8 + 1
 
-        let x = self.oam[3];
+        let mut num_sprites = 0;
 
-        // sprites are delayed 1 scanline
-        let y = self.oam[0] + 1;
+        for sprite_num in 0..64 {
+            // sprites are delayed 1 scanline
+            let y = self.oam[sprite_num*4];
+            let visible = y < 0xF0;
 
-        let attributes = self.oam[2];
-        let vert_flip = (attributes & 0x80) == 0x80;
-        let horiz_flip = (attributes & 0x40) == 0x40;
-        let palette_high = 0x10 | ((attributes & 0x3) << 2);
-
-        let tile_num = self.oam[1];
-
-        // TODO
-        let pt_base = 0x0000;
-
-        let tile_addr = pt_base + ((tile_num as u16) << 4);
-
-        if y <= scanline && scanline < y + 8 {
-
-            let sprite_row = if vert_flip {
-                7 - (scanline - y)
+            if visible && y + 1 <= scanline && scanline < y + 1 + 8 {
+                self.render_sprite(sprite_num as u8, scanline);
+                num_sprites += 1;
             }
-            else {
-                scanline - y
-            };
 
-            let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
-            let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
-
-            let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
-
-            // if horiz flip, reverse pattern bits
-            let shamt_list : Vec<(usize, u8)> = if horiz_flip {
-                (0..end_col).enumerate().collect()
-            }
-            else {
-                (0..end_col).rev().enumerate().collect()
-            };
-
-
-            for (sprite_col, shamt) in shamt_list {
-                let sprite_col = sprite_col as u8;
-
-                // low two bits of palette index, from pattern table
-                let palette_low = ((pattern_low  >> shamt) & 0b1) |
-                                 (((pattern_high >> shamt) & 0b1) << 1);
-
-                let palette_i = concat_palette_bits(palette_low, palette_high);
-                let color = self.get_palette_color(palette_i);
-
-                self.set_pixel(sprite_col + x, scanline, color);
-            }
+            if num_sprites == 8 { break; }
         }
     }
 
     pub fn render(&mut self, picture : &mut super::graphics::Picture) {
         for i in 0..240 {
             self.render_scanline_bg(i);
+            self.render_scanline_sprites(i);
         }
-        self.render_scanline_sprites(0);
 
         picture.update(&self.pixeldata);
     }

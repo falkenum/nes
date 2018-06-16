@@ -1,12 +1,111 @@
-use super::{ PPU, Memory, Cartridge };
+use super::{ PPU, Memory };
 use super::reg_id::*;
 
 const SCREEN_WIDTH : usize = 256;
 
 // TODO test sprite different pt base
-// TODO test 8x16 sprite, flipping
-// TODO test multiple sprites
-// TODO test sprite and bg rendering together, priority
+// TODO test 8x16 sprite, flipping, ignore pt base
+
+// TODO test sprite overlap
+// TODO test sprite and bg priority
+
+#[test]
+fn sprite_pt_base() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // pt base 0x1000 for 8x8 sprites
+    p.control = 0x08;
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x1008, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
+
+#[test]
+fn multiple_sprites() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // 8 sprites, each with 8 pixels in between of background
+
+    for i in 0..8 {
+        p.oam[i*4+0] = 0x00;
+        p.oam[i*4+1] = 0x00;
+        p.oam[i*4+2] = 0x00;
+        p.oam[i*4+3] = 16 * i as u8;
+    }
+
+    p.mem.storeb(0x0000, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F01, 0x01);
+    p.mem.storeb(0x3F11, 0x11);
+    p.mem.storeb(0x3F12, 0x12);
+    p.mem.storeb(0x3F13, 0x13);
+
+    p.render_scanline_sprites(1);
+
+    for sprite in 0..8 {
+        let sprite_start = 256 + sprite*16;
+        for i in 0..8 {
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 120);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+
+        }
+
+        // check that the in between part is unmodified
+        assert_eq!(p.pixeldata[(sprite_start + 9)*3], 000);
+    }
+
+    p.oam[9*4+0] = 0x00;
+    p.oam[9*4+1] = 0x00;
+    p.oam[9*4+2] = 0x00;
+    p.oam[9*4+3] = 16 * 9 as u8;
+
+    p.render_scanline_sprites(1);
+
+    for sprite in 0..8 {
+        let sprite_start = 256 + sprite*16;
+        for i in 0..8 {
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 120);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+
+        }
+
+        // check that the in between part is unmodified
+        assert_eq!(p.pixeldata[(sprite_start + 9)*3], 000);
+    }
+
+    let sprite_start = 256 + 9*16;
+    // 9th sprite should not be rendered
+    assert_eq!(p.pixeldata[sprite_start*3+0], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+}
 
 #[test]
 fn sprite_and_bg_rendering() {
@@ -48,8 +147,6 @@ fn sprite_and_bg_rendering() {
     // bg after the sprite should be unchanged
     assert_eq!(p.pixeldata[(pixel + 9)*3+0], 252);
 
-    // // give bg priority
-    // p.oam[2] = 0x20;
 }
 
 #[test]
