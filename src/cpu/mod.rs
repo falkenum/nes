@@ -197,7 +197,15 @@ impl CPU {
 
     fn push(&mut self, val : u8) {
         self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
-        self.sp -= 1;
+
+        // if self.sp == 0x00 {
+        //     panic!("stack overflow with val 0x{:x} at pc 0x{:04x}",
+        //            val, self.get_pc());
+        // }
+
+        // TODO not sure if I should just let it wrap around, but I
+        // guess that's how it would work on the NES
+        self.sp = self.sp.wrapping_sub(self.sp);
     }
 
     fn pop(&mut self) -> u8 {
