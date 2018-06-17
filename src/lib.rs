@@ -54,7 +54,7 @@ pub fn run_emulator(cart : Cartridge) {
         ppu.borrow_mut().render(&mut picture);
         screen.update_and_show(&picture);
 
-        // cpu catch up
+        // cpu during rendering
         while cpu_cycles < 114*241 {
             cpu_cycles += cpu.step() as usize;
         }
@@ -62,7 +62,12 @@ pub fn run_emulator(cart : Cartridge) {
 
         // start vblank
         ppu.borrow_mut().set_vblank();
-        cpu.send_nmi();
+
+        if ppu.borrow().nmi_enabled() {
+            cpu.send_nmi();
+        }
+
+        // cpu during vblank
         while cpu_cycles < 114*20 {
             cpu_cycles += cpu.step() as usize;
         }

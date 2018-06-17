@@ -162,6 +162,7 @@ impl PPU {
 
             CONTROL => 0,
             MASK    => 0,
+            // TODO reset vblank flag after read of $2002
             STATUS  => self.status,
             OAMADDR => 0,
             OAMDATA => self.oam[self.oam_addr as usize],
@@ -432,6 +433,10 @@ impl PPU {
 
     pub fn clear_vblank(&mut self) {
         self.status &= 0x7F
+    }
+
+    pub fn nmi_enabled(&self) -> bool {
+        (self.control & 0x80) != 0
     }
 
     pub fn render(&mut self, picture : &mut super::graphics::Picture) {

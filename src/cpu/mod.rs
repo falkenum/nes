@@ -190,6 +190,9 @@ impl CPU {
 
         (op.instr)(self, op.arg);
 
+        // TODO test
+        cycles += self.mem.fetch_stalled_cycles();
+
         cycles
     }
 
@@ -197,19 +200,11 @@ impl CPU {
 
     fn push(&mut self, val : u8) {
         self.mem.storeb(STACK_BEGIN + self.sp as u16, val);
-
-        // if self.sp == 0x00 {
-        //     panic!("stack overflow with val 0x{:x} at pc 0x{:04x}",
-        //            val, self.get_pc());
-        // }
-
-        // TODO not sure if I should just let it wrap around, but I
-        // guess that's how it would work on the NES
-        self.sp = self.sp.wrapping_sub(self.sp);
+        self.sp = self.sp.wrapping_sub(1);
     }
 
     fn pop(&mut self) -> u8 {
-        self.sp += 1;
+        self.sp = self.sp.wrapping_add(1);
         self.mem.loadb(STACK_BEGIN + self.sp as u16)
     }
 
