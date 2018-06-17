@@ -1,5 +1,40 @@
 
 use super::{ CPU, RAM_LAST, RAM_SIZE, Memory };
+
+#[test]
+fn oamdma() {
+    let mut c = CPU::test();
+
+    let oam_page = 0x02;
+    let oam_base_addr = (oam_page as u16) << 8;
+
+    // fill page 2 of ram with 0xAB
+    for i in 0..256 {
+        c.mem.storeb(oam_base_addr + i, 0xAB);
+    }
+    c.mem.oamdma(oam_page);
+
+    let oam = c.mem.ppu.borrow().oam;
+
+    for val in oam.iter() {
+        assert_eq!(*val, 0xAB);
+    }
+
+    // test oamaddr not starting at 0
+    c.mem.storeb(0x2003, 0x55);
+
+    for i in 0..256 {
+        c.mem.storeb(oam_base_addr + i, 0xBC);
+    }
+    c.mem.oamdma(oam_page);
+
+    let oam = c.mem.ppu.borrow().oam;
+
+    for val in oam.iter() {
+        assert_eq!(*val, 0xBC);
+    }
+}
+
 #[test]
 fn ram() {
     let c = CPU::test();

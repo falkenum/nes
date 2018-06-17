@@ -21,7 +21,7 @@ pub enum AddrMode {
 }
 
 pub struct DecodeResult {
-    pub num_cycles : u8,
+    pub num_cycles : usize,
     pub op : Op,
 }
 
@@ -154,7 +154,7 @@ mod constants {
     // The number of cycles that each machine operation takes.
     // Indexed by opcode number.
     // This is copied from FCEU.
-    pub static CYCLE_TABLE : [u8; 256] = [
+    pub static CYCLE_TABLE : [usize; 256] = [
         /*0x00*/ 7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
         /*0x10*/ 2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
         /*0x20*/ 6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,

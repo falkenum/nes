@@ -16,6 +16,11 @@ const PPUREGS_FIRST : u16 = 0x2000;
 const PPUREGS_LAST  : u16 = 0x3FFF;
 const PPUREGS_SIZE  : u16 = 0x0008;
 
+const IO_FIRST : u16 = 0x4000;
+const IO_LAST  : u16 = 0x4017;
+
+const OAMDMA : u16 = 0x4014;
+
 
 pub struct CPUMem {
     // 0000 - 07FF : ram
@@ -30,6 +35,7 @@ pub struct CPUMem {
     ppu  : ComponentRc<PPU>,
     apu  : ComponentRc<APU>,
     controller : ComponentRc<Controller>,
+    stalled_cycles : usize,
 }
 
 fn split_bytes(val : u16) -> (u8, u8) {
@@ -47,6 +53,8 @@ impl Memory for CPUMem {
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
             PPUREGS_FIRST...PPUREGS_LAST =>
                 self.ppu.borrow_mut().reg_read((addr % PPUREGS_SIZE) as u8),
+            OAMDMA => 0,
+            IO_FIRST...IO_LAST => 0, //TODO
             _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
         }
     }
@@ -56,8 +64,31 @@ impl Memory for CPUMem {
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
             PPUREGS_FIRST...PPUREGS_LAST =>
                 self.ppu.borrow_mut().reg_write((addr % PPUREGS_SIZE) as u8, val),
+            OAMDMA => self.oamdma(val),
+            IO_FIRST...IO_LAST => (), //TODO
             _ => panic!("couldn't map addr 0x{:04x} to CPU memory", addr),
         }
+    }
+}
+
+impl CPUMem {
+    fn oamdma(&mut self, page_num : u8) {
+        let src_addr = (page_num as u16) << 8;
+
+        for _ in 0..256 {
+            let val = self.loadb(src_addr);
+            self.ppu.borrow_mut().oamdma_write(val);
+        }
+
+        // 514 cycles for each oamdma
+        self.stalled_cycles = 514;
+        // TODO have cpumem keep an iostatus? for cpu to handle?
+    }
+
+    fn fetch_stalled_cycles(&mut self) -> usize {
+        let ret = self.stalled_cycles;
+        self.stalled_cycles = 0;
+        ret
     }
 }
 
@@ -132,10 +163,11 @@ impl CPU {
 
     // does interrupt if requested
     // executes next instruction, returns cycles passed
-    pub fn step(&mut self) -> u8 {
+    pub fn step(&mut self) -> usize {
 
         let mut cycles = 0;
-        const INTERRUPT_CYCLES : u8 = 7;
+
+        const INTERRUPT_CYCLES : usize = 7;
 
         match self.interrupt_status {
             InterruptStatus::NMI => {
@@ -154,9 +186,9 @@ impl CPU {
 
         let decode_result = instructions::decode::fetch_and_decode(self);
         let op = decode_result.op;
-        (op.instr)(self, op.arg);
-
         cycles += decode_result.num_cycles;
+
+        (op.instr)(self, op.arg);
 
         cycles
     }
@@ -265,6 +297,7 @@ impl CPU {
                 ppu : ppu,
                 apu : apu,
                 controller : controller,
+                stalled_cycles : 0,
             },
             interrupt_status : InterruptStatus::None,
         }

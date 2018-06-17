@@ -46,7 +46,7 @@ nmi
     ldx #$00
     stx $2004                   ; tile
 
-    ldx #$20
+    ldx #$00
     stx $2004                   ; attr
 
     ldx #$00

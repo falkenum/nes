@@ -50,6 +50,7 @@ pub fn run_emulator(cart : Cartridge) {
     'running: loop {
 
         // ppu rendering
+        ppu.borrow_mut().clear_vblank();
         ppu.borrow_mut().render(&mut picture);
         screen.update_and_show(&picture);
 
@@ -60,6 +61,7 @@ pub fn run_emulator(cart : Cartridge) {
         cpu_cycles = 0;
 
         // start vblank
+        ppu.borrow_mut().set_vblank();
         cpu.send_nmi();
         while cpu_cycles < 114*20 {
             cpu_cycles += cpu.step() as usize;
@@ -74,7 +76,7 @@ pub fn run_emulator(cart : Cartridge) {
                     controller.borrow_mut().update(action, button),
             }
         }
-        // std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
         num_frames += 1;
     }
 

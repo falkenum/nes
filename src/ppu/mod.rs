@@ -9,12 +9,13 @@ const OAM_SIZE : usize = 256;
 
 // TODO byte 2 of sprites anded with E3
 pub struct PPU {
+    pub oam             : [u8; OAM_SIZE],
     mem                 : PPUMem,
-    oam                 : [u8; OAM_SIZE],
     pixeldata           : [u8; SCREEN_SIZE],
 
     control             : u8,
     mask                : u8,
+    status              : u8,
     oam_addr            : u8,
     scroll              : u8,
 
@@ -64,6 +65,9 @@ struct PPUMem {
 // horizontal mirroring.
 impl Memory for PPUMem {
     fn loadb(&self, addr : u16) -> u8 {
+        // mirror above 3FFF
+        let addr = addr & 0x3FFF;
+
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
             PALETTE_RAM_FIRST...PALETTE_RAM_LAST => {
@@ -76,10 +80,13 @@ impl Memory for PPUMem {
 
                 self.palette_ram[addr as usize]
             },
-            _ => panic!("invalid ppu address"),
+            _ => panic!("loadb: invalid ppu address: 0x{:4x}", addr),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
+        // mirror above 3FFF
+        let addr = addr & 0x3FFF;
+
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
             PALETTE_RAM_FIRST...PALETTE_RAM_LAST => {
@@ -92,7 +99,7 @@ impl Memory for PPUMem {
 
                 self.palette_ram[addr as usize] = val;
             }
-            _ => panic!("invalid ppu address"),
+            _ => panic!("storeb: invalid ppu address: 0x{:4x}", addr),
         }
     }
 }
@@ -135,6 +142,7 @@ impl PPU {
             oam       : [0xFF; OAM_SIZE], // init to FF so sprites are hidden
             control  : 0,
             mask     : 0,
+            status   : 0,
             oam_addr : 0,
             scroll   : 0,
             address  : 0,
@@ -154,10 +162,10 @@ impl PPU {
 
             CONTROL => 0,
             MASK    => 0,
-            STATUS  => unimplemented!(),
+            STATUS  => self.status,
             OAMADDR => 0,
             OAMDATA => self.oam[self.oam_addr as usize],
-            SCROLL  => unimplemented!(),
+            SCROLL  => 0,
             ADDRESS => 0,
             DATA    => {
                 let addr = self.address;
@@ -182,13 +190,13 @@ impl PPU {
         match reg_num {
             CONTROL => self.control = val,
             MASK    => self.mask = val,
-            STATUS  => unimplemented!(),
+            STATUS  => (),
             OAMADDR => self.oam_addr = val,
             OAMDATA => {
                 self.oam[self.oam_addr as usize] = val;
                 self.oam_addr = self.oam_addr.wrapping_add(1);
             },
-            SCROLL  => unimplemented!(),
+            SCROLL  => (), // FIXME
             ADDRESS => {
                 if self.address_first_write {
                     self.address_first_val = val;
@@ -198,16 +206,21 @@ impl PPU {
                     // shift up the value from the first write
                     self.address = ((self.address_first_val as u16) << 8
                                     | val as u16) // add in the new value
-                                    & 0x3FFF;     // mirror those above 0x3FFF
+                                    & 0x3FFF; // mirror above 3FFF
                     self.address_first_write = true;
                 }
             },
             DATA    => {
                 self.mem.storeb(self.address, val);
-                self.address += if self.control >> 2 == 1 { 0x20 } else { 0x01 };
+                let inc_amount = if self.control >> 2 == 1 { 0x20 } else { 0x01 };
+                self.address = self.address.wrapping_add(inc_amount);
             },
             _ => panic!("invalid ppu reg num"),
         }
+    }
+
+    pub fn oamdma_write(&mut self, val : u8) {
+        self.reg_write(reg_id::OAMDATA, val);
     }
 
     // fn render_tile_row(x : u8, y : u8, render_style : RenderStyle) {
@@ -324,12 +337,12 @@ impl PPU {
         self.mem.loadb(0x3F00 + palette_i as u16) as usize
     }
 
+    // TODO OAMDMA
     // TODO sprite zero hit
     // TODO sprite bg priority
     // TODO sprite overlap priority
 
-    fn render_sprite(&mut self, sprite_num : u8, scanline : u8)
-                     -> SpriteRenderResult {
+    fn render_sprite(&mut self, sprite_num : u8, scanline : u8) {
 
         let sprite_i = (sprite_num*4) as usize;
         let y = self.oam[sprite_i+0] + 1;
@@ -355,6 +368,8 @@ impl PPU {
         };
 
         let pattern_low  = self.mem.loadb(tile_addr + sprite_row as u16);
+
+
         let pattern_high = self.mem.loadb(tile_addr + sprite_row as u16 + 8);
 
         let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
@@ -376,12 +391,15 @@ impl PPU {
                                 (((pattern_high >> shamt) & 0b1) << 1);
 
             let palette_i = concat_palette_bits(palette_low, palette_high);
+
+            // TODO test: don't overwrite background on transparent pixels
+            if palette_i == 0 { continue; }
+
             let color = self.get_palette_color(palette_i);
 
             self.set_pixel(sprite_col + x, scanline, color);
         }
 
-        SpriteRenderResult::Rendered
     }
 
     // requires that the bg for the scanline is already rendered
@@ -394,6 +412,7 @@ impl PPU {
         let mut num_sprites = 0;
 
         for sprite_num in 0..64 {
+            // TODO find a way to not check for y here (in two places)
             // sprites are delayed 1 scanline
             let y = self.oam[sprite_num*4];
             let visible = y < 0xF0;
@@ -405,6 +424,14 @@ impl PPU {
 
             if num_sprites == 8 { break; }
         }
+    }
+
+    pub fn set_vblank(&mut self) {
+        self.status |= 0x80
+    }
+
+    pub fn clear_vblank(&mut self) {
+        self.status &= 0x7F
     }
 
     pub fn render(&mut self, picture : &mut super::graphics::Picture) {
