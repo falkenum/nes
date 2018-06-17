@@ -3,11 +3,141 @@ use super::reg_id::*;
 
 const SCREEN_WIDTH : usize = 256;
 
-// TODO test sprite different pt base
 // TODO test 8x16 sprite, flipping, ignore pt base
 
 // TODO test sprite overlap
 // TODO test sprite and bg priority
+
+#[test]
+fn sprite_8x16_tile() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // 8x16 sprites
+    p.control = 0x20;
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x02;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x0018, 0xFF);
+
+    p.mem.storeb(0x0020, 0xFF);
+    p.mem.storeb(0x0028, 0xFF);
+    p.mem.storeb(0x0030, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 040);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 068);
+    }
+
+    p.render_scanline_sprites(9);
+    let sprite_start = 256*9;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
+
+#[test]
+fn sprite_8x16_pt_base() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // 8x16 sprites
+    p.control = 0x20;
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x01;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x0018, 0xFF);
+
+    p.mem.storeb(0x1000, 0xFF);
+    p.mem.storeb(0x1008, 0xFF);
+    p.mem.storeb(0x1010, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 040);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 068);
+    }
+
+    p.render_scanline_sprites(9);
+    let sprite_start = 256*9;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
+
+#[test]
+fn sprite_8x16_basic() {
+    let mut p = PPU::test();
+
+    p.oam = [0xFF; 256];
+
+    // 8x16 sprites
+    p.control = 0x20;
+
+    p.oam[0] = 0x00;
+    p.oam[1] = 0x00;
+    p.oam[2] = 0x00;
+    p.oam[3] = 0x00;
+
+    p.mem.storeb(0x0000, 0xFF);
+    p.mem.storeb(0x0018, 0xFF);
+
+    p.mem.storeb(0x3F00, 0x00);
+    p.mem.storeb(0x3F11, 0x01);
+    p.mem.storeb(0x3F12, 0x02);
+    p.mem.storeb(0x3F13, 0x03);
+
+    p.render_scanline_sprites(1);
+    let sprite_start = 256;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+
+    p.render_scanline_sprites(9);
+    let sprite_start = 256*9;
+
+    for i in 0..8 {
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+    }
+}
 
 #[test]
 fn sprite_pt_base() {
