@@ -197,7 +197,11 @@ impl PPU {
                 self.oam[self.oam_addr as usize] = val;
                 self.oam_addr = self.oam_addr.wrapping_add(1);
             },
-            SCROLL  => (), // FIXME
+            // TODO scrolling
+            SCROLL  => match val {
+                0 => (),
+                _ => unimplemented!("scrolling"),
+            },
             ADDRESS => {
                 if self.address_first_write {
                     self.address_first_val = val;
@@ -344,8 +348,8 @@ impl PPU {
 
         // decide 8x8 or 8x16
         let sprite_size = if (self.control & 0x20) != 0 {16} else {8};
-
         let sprite_i = (sprite_num*4) as usize;
+
         let y = self.oam[sprite_i+0];
         let visible = y < 0xF0;
 
@@ -356,46 +360,51 @@ impl PPU {
         // sprites are delayed 1 scanline
         let y = y + 1;
 
-        let x = self.oam[sprite_i+3];
-
+        let tile_num   = self.oam[sprite_i+1] as u16;
         let attributes = self.oam[sprite_i+2];
-        let vert_flip = (attributes & 0x80) == 0x80;
-        let horiz_flip = (attributes & 0x40) == 0x40;
+        let x          = self.oam[sprite_i+3];
+
+        let vert_flip    = (attributes & 0x80) == 0x80;
+        let horiz_flip   = (attributes & 0x40) == 0x40;
         let palette_high = 0x10 | ((attributes & 0x3) << 2);
 
-        // TODO vert_flip for 8x16
-        let sprite_row = if vert_flip {
-            7 - (scanline - y)
-        }
-        else {
-            scanline - y
-        };
+        let sprite_row = scanline - y;
 
-        let tile_row = if sprite_size == 16 && sprite_row >= 8 {
+        let tile_row = if sprite_row >= 8 {
+            // this can only happen for 8x16, even though I don't check for it
             sprite_row - 8
         }
         else {
             sprite_row
         };
 
-        let tile_num = self.oam[sprite_i+1] as u16;
+        let tile_row = if vert_flip {
+            7 - tile_row
+        }
+        else {
+            tile_row
+        };
+
 
         let tile_addr = if sprite_size == 8 {
             let pt_base = (self.control as u16 & 0x08) << 9;
             pt_base + (tile_num << 4)
-
         }
         // 8x16
         else {
-
             let pt_base = (tile_num & 1) << 12;
-            debug_assert!(pt_base == 0x0000 || pt_base == 0x1000);
 
-            pt_base + (tile_num & 0xFE) + if sprite_row >= 8 {0x10} else {0}
+            let tile_num = (tile_num & 0xFE) + match (sprite_row >= 8, vert_flip) {
+                (false, false) => 0,
+                (false, true ) => 1,
+                (true,  false) => 1,
+                (true,  true ) => 0,
+            };
+
+            pt_base + (tile_num << 4)
         };
 
         let pattern_low  = self.mem.loadb(tile_addr + tile_row as u16);
-
         let pattern_high = self.mem.loadb(tile_addr + tile_row as u16 + 8);
 
         let end_col = if x > 0xF8 {0xFF - x + 1} else {8};
@@ -418,7 +427,8 @@ impl PPU {
 
             let palette_i = concat_palette_bits(palette_low, palette_high);
 
-            // TODO test: don't overwrite background on transparent pixels
+            // don't overwrite background on transparent pixels
+            // TODO test this
             if palette_i == 0 { continue; }
 
             let color = self.get_palette_color(palette_i);

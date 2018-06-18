@@ -46,9 +46,8 @@ impl Cartridge {
         let num_prgrom_banks = header[4];
         let num_chrrom_banks = header[5];
         let flags6          = header[6];
-        println!("flags 6: {:08b}", flags6);
         let flags7          = header[7];
-        println!("flags 7: {:08b}", flags7);
+        let mapper = ((flags6 & 0xF0) >> 4) | (flags7 & 0xF0);
 
         let prgrom_size = PRGROM_BANK_SIZE * num_prgrom_banks as usize;
         let chrrom_size = CHRROM_BANK_SIZE * num_chrrom_banks as usize;
@@ -68,11 +67,20 @@ impl Cartridge {
 
         // TODO check if there is still more data (invalid file)
 
+        println!("flags 6: {:08b}", flags6);
+        println!("flags 7: {:08b}", flags7);
+        println!("mapper: {}", mapper);
         println!("loaded cartridge {}", filename);
         println!("num prgrom banks: {}; total prgrom size: {}k",
             num_prgrom_banks, prgrom_size / 1024);
         println!("num chrrom banks: {}; total chrrom size: {}k",
             num_chrrom_banks, chrrom_size / 1024);
+
+        // TODO more mappers
+        match mapper {
+            0 => (),
+            _ => unimplemented!("mapper {}", mapper),
+        }
 
         Cartridge {
             prgrom_size : new_prgrom.len() as u16,
