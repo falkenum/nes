@@ -42,32 +42,32 @@ pub fn run_emulator(cart : Cartridge) {
 
     use std::time::SystemTime;
     let start = SystemTime::now();
-    let mut cpu_cycles : usize = 0;
+    let mut _total_cycles : usize = 0;
+    let mut cpu_cycles : usize;
     let mut num_frames : usize = 0;
 
     cpu.send_reset();
 
     'running: loop {
+        cpu_cycles = 0;
 
         // cpu during rendering
         while cpu_cycles < 114*241 {
-            cpu_cycles += cpu.step() as usize;
+            cpu_cycles += cpu.step();
         }
-        cpu_cycles = 0;
 
         // start vblank
         ppu.borrow_mut().set_vblank();
-
         if ppu.borrow().nmi_enabled() {
             cpu.send_nmi();
         }
 
         // cpu during vblank
-        while cpu_cycles < 114*20 {
-            cpu_cycles += cpu.step() as usize;
+        while cpu_cycles < 114*261 {
+            cpu_cycles += cpu.step();
         }
-        cpu_cycles = 0;
 
+        _total_cycles += cpu_cycles;
         // ppu rendering
         ppu.borrow_mut().clear_vblank();
         ppu.borrow_mut().render(&mut picture);

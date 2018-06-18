@@ -75,8 +75,8 @@ impl CPUMem {
     fn oamdma(&mut self, page_num : u8) {
         let src_addr = (page_num as u16) << 8;
 
-        for _ in 0..256 {
-            let val = self.loadb(src_addr);
+        for i in 0..256 {
+            let val = self.loadb(src_addr + i);
             self.ppu.borrow_mut().oamdma_write(val);
         }
 

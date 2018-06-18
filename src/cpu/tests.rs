@@ -8,16 +8,16 @@ fn oamdma() {
     let oam_page = 0x02;
     let oam_base_addr = (oam_page as u16) << 8;
 
-    // fill page 2 of ram with 0xAB
+    // fill page 2 of ram with 0 - 255
     for i in 0..256 {
-        c.mem.storeb(oam_base_addr + i, 0xAB);
+        c.mem.storeb(oam_base_addr + i, i as u8);
     }
     c.mem.oamdma(oam_page);
 
     let oam = c.mem.ppu.borrow().oam;
 
-    for val in oam.iter() {
-        assert_eq!(*val, 0xAB);
+    for i in 0..256 {
+        assert_eq!(oam[i], i as u8);
     }
 
     // test oamaddr not starting at 0
