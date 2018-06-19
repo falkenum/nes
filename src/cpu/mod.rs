@@ -20,6 +20,7 @@ const IO_FIRST : u16 = 0x4000;
 const IO_LAST  : u16 = 0x4017;
 
 const OAMDMA : u16 = 0x4014;
+const CONTROLLER_1 : u16 = 0x4016;
 
 
 pub struct CPUMem {
@@ -54,6 +55,8 @@ impl Memory for CPUMem {
             PPUREGS_FIRST...PPUREGS_LAST =>
                 self.ppu.borrow_mut().reg_read((addr % PPUREGS_SIZE) as u8),
             OAMDMA => 0,
+            CONTROLLER_1 => self.controller.borrow_mut().read_next(),
+            // CONTROLLER_1 => 0xFF,
             IO_FIRST...IO_LAST => 0, //TODO
             _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
         }
@@ -65,6 +68,7 @@ impl Memory for CPUMem {
             PPUREGS_FIRST...PPUREGS_LAST =>
                 self.ppu.borrow_mut().reg_write((addr % PPUREGS_SIZE) as u8, val),
             OAMDMA => self.oamdma(val),
+            CONTROLLER_1 => self.controller.borrow_mut().set_strobe(val),
             IO_FIRST...IO_LAST => (), //TODO
             _ => panic!("couldn't map addr 0x{:04x} to CPU memory", addr),
         }
@@ -82,7 +86,6 @@ impl CPUMem {
 
         // 514 cycles for each oamdma
         self.stalled_cycles = 514;
-        // TODO have cpumem keep an iostatus? for cpu to handle?
     }
 
     fn fetch_stalled_cycles(&mut self) -> usize {

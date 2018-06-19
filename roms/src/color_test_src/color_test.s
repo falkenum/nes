@@ -158,7 +158,7 @@ PAD_R      = $80
 
 gamepad_poll:
 	lda #1
-	sta $4016
+	sta $4016                     ; 0x8158
 	lda #0
 	sta $4016
 	ldx #8

@@ -68,6 +68,7 @@ pub fn run_emulator(cart : Cartridge) {
         }
 
         _total_cycles += cpu_cycles;
+
         // ppu rendering
         ppu.borrow_mut().clear_vblank();
         ppu.borrow_mut().render(&mut picture);
@@ -78,7 +79,11 @@ pub fn run_emulator(cart : Cartridge) {
                 EmulatorEvent::Exit => break 'running,
                 EmulatorEvent::Continue => (),
                 EmulatorEvent::ControllerEvent { action, button } =>
-                    controller.borrow_mut().update(action, button),
+                {
+                    // println!("{:?}, {:?}", action, button);
+                    controller.borrow_mut().update(action, button);
+                    // println!("{:08b}", controller.borrow().status());
+                },
             }
         }
         std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
