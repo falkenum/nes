@@ -1,0 +1,11 @@
+
+  * ppu mask
+  * sprite zero hit (and sprite overflow? is that used anywhere?)
+  * individual scanline rendering
+
+  * Everything in the APU
+
+  * horizontal mirroring
+  * a few more cartridge types
+
+  * reduce controller delay

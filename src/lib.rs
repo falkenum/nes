@@ -33,22 +33,22 @@ pub fn run_emulator(cart : Cartridge) {
         cart.new_ref(), ppu.new_ref(), apu.new_ref(), controller.new_ref());
 
     // current version of rust-sdl2 requires that I use a
-    // TextureCreator that is alive as long as the Texture is,
-    // which is the reason I ended up with this annoying
-    // picture_creator thing
+    // TextureCreator that is alive as long as the Texture is
     let picture_creator = screen.picture_creator();
     let mut picture = picture_creator.create_picture();
 
 
-    use std::time::SystemTime;
+    use std::time::{ SystemTime, Duration };
     let start = SystemTime::now();
-    let mut _total_cycles : usize = 0;
     let mut cpu_cycles : usize;
     let mut num_frames : usize = 0;
 
     cpu.send_reset();
 
     'running: loop {
+        let frame_len = Duration::new(0, 1_000_000_000u32 / 60);
+        let frame_start_time = SystemTime::now();
+
         cpu_cycles = 0;
 
         // cpu during rendering
@@ -67,8 +67,6 @@ pub fn run_emulator(cart : Cartridge) {
             cpu_cycles += cpu.step();
         }
 
-        _total_cycles += cpu_cycles;
-
         // ppu rendering
         ppu.borrow_mut().clear_vblank();
         ppu.borrow_mut().render(&mut picture);
@@ -79,14 +77,18 @@ pub fn run_emulator(cart : Cartridge) {
                 EmulatorEvent::Exit => break 'running,
                 EmulatorEvent::Continue => (),
                 EmulatorEvent::ControllerEvent { action, button } =>
-                {
-                    // println!("{:?}, {:?}", action, button);
-                    controller.borrow_mut().update(action, button);
-                    // println!("{:08b}", controller.borrow().status());
-                },
+                    controller.borrow_mut().update(action, button),
             }
         }
-        std::thread::sleep(std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        let frame_duration = frame_start_time.elapsed().unwrap();
+
+        match frame_len.checked_sub(frame_duration) {
+            // if the frame took less time than 1/60 of a second,
+            // then delay so we get 60fps
+            Some(duration) => std::thread::sleep(duration),
+            None => (),
+        }
+
         num_frames += 1;
     }
 
