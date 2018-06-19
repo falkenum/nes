@@ -1,4 +1,4 @@
-use super::{ PPU, Memory };
+use super::{ PPU, Memory, PALETTE_BGR };
 use super::reg_id::*;
 
 const SCREEN_WIDTH : usize = 256;
@@ -34,17 +34,17 @@ fn sprite_8x16_vert_flip() {
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 
     p.render_scanline_sprites(16);
     let sprite_start = 256*16;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 }
 
@@ -75,9 +75,9 @@ fn sprite_8x16_y() {
     p.render_scanline_sprites(2);
     let sprite_start = 256*2;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     // sprite on last scanline
@@ -85,9 +85,9 @@ fn sprite_8x16_y() {
     p.render_scanline_sprites(239);
     let sprite_start = 256*239;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 }
 
@@ -117,9 +117,9 @@ fn sprite_8x16_x() {
     let sprite_start = 256 + 1;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     // last column
@@ -127,9 +127,9 @@ fn sprite_8x16_x() {
     p.render_scanline_sprites(1);
     let sprite_start = 256 + 255;
 
-    assert_eq!(p.pixeldata[sprite_start*3+0], 252);
-    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
-    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+0], PALETTE_BGR[1].0);
+    assert_eq!(p.pixeldata[sprite_start*3+1], PALETTE_BGR[1].1);
+    assert_eq!(p.pixeldata[sprite_start*3+2], PALETTE_BGR[1].2);
 }
 
 #[test]
@@ -162,18 +162,18 @@ fn sprite_8x16_tile() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 040);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 068);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[3].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[3].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[3].2);
     }
 
     p.render_scanline_sprites(9);
     let sprite_start = 256*9;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     p.oam[1] = 0xFE;
@@ -185,18 +185,18 @@ fn sprite_8x16_tile() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 
     p.render_scanline_sprites(9);
     let sprite_start = 256*9;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 }
 
@@ -230,18 +230,18 @@ fn sprite_8x16_pt_base() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 040);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 068);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[3].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[3].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[3].2);
     }
 
     p.render_scanline_sprites(9);
     let sprite_start = 256*9;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 }
 
@@ -271,18 +271,18 @@ fn sprite_8x16_basic() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     p.render_scanline_sprites(9);
     let sprite_start = 256*9;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 }
 
@@ -313,9 +313,9 @@ fn sprite_pt_base() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 }
 
@@ -347,9 +347,9 @@ fn multiple_sprites() {
     for sprite in 0..8 {
         let sprite_start = 256 + sprite*16;
         for i in 0..8 {
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 120);
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[0x11].0);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[0x11].1);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[0x11].2);
 
         }
 
@@ -367,9 +367,9 @@ fn multiple_sprites() {
     for sprite in 0..8 {
         let sprite_start = 256 + sprite*16;
         for i in 0..8 {
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 120);
-            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[0x11].0);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[0x11].1);
+            assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[0x11].2);
 
         }
 
@@ -408,17 +408,17 @@ fn sprite_and_bg_rendering() {
     p.render_scanline_bg(1);
     let pixel = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(pixel + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(pixel + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(pixel + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(pixel + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(pixel + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(pixel + i)*3+2], PALETTE_BGR[1].2);
     }
 
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 248);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 088);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[0x12].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[0x12].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[0x12].2);
     }
 
     // bg after the sprite should be unchanged
@@ -448,9 +448,9 @@ fn sprite_tiles() {
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 }
 
@@ -478,9 +478,9 @@ fn sprite_palette() {
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 032);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 168);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[5].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[5].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[5].2);
     }
 }
 
@@ -509,23 +509,23 @@ fn sprite_horiz_flip() {
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..4 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
     for i in 4..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 
     // horizontal flip at the last col
     p.oam[3] = 0xFF;
     p.render_scanline_sprites(1);
     let sprite_start = 256 + 255;
-    assert_eq!(p.pixeldata[sprite_start*3+0], 252);
-    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
-    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+0], PALETTE_BGR[1].0);
+    assert_eq!(p.pixeldata[sprite_start*3+1], PALETTE_BGR[1].1);
+    assert_eq!(p.pixeldata[sprite_start*3+2], PALETTE_BGR[1].2);
 }
 
 #[test]
@@ -553,17 +553,17 @@ fn sprite_vert_flip() {
     p.render_scanline_sprites(1);
     let sprite_start = 256;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 
     p.render_scanline_sprites(8);
     let sprite_start = 256*8;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 }
 
@@ -591,18 +591,18 @@ fn sprite_x() {
     p.render_scanline_sprites(1);
     let sprite_start = 256 + 1;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     // last column
     p.oam[3] = 0xFF;
     p.render_scanline_sprites(1);
     let sprite_start = 256 + 255;
-    assert_eq!(p.pixeldata[sprite_start*3+0], 252);
-    assert_eq!(p.pixeldata[sprite_start*3+1], 000);
-    assert_eq!(p.pixeldata[sprite_start*3+2], 000);
+    assert_eq!(p.pixeldata[sprite_start*3+0], PALETTE_BGR[1].0);
+    assert_eq!(p.pixeldata[sprite_start*3+1], PALETTE_BGR[1].1);
+    assert_eq!(p.pixeldata[sprite_start*3+2], PALETTE_BGR[1].2);
 }
 
 #[test]
@@ -639,9 +639,9 @@ fn sprite_y() {
     p.render_scanline_sprites(2);
     let sprite_start = 256*2;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     // sprite on last scanline
@@ -649,9 +649,9 @@ fn sprite_y() {
     p.render_scanline_sprites(239);
     let sprite_start = 256*239;
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 }
 
@@ -679,9 +679,9 @@ fn basic_sprite_rendering() {
     let sprite_start = 256;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 252);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[1].2);
     }
 
     // check that only 8 pixels were changed
@@ -692,9 +692,9 @@ fn basic_sprite_rendering() {
     let sprite_start = 256*8;
 
     for i in 0..8 {
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], 188);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], 000);
-        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], 000);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[(sprite_start + i)*3+2], PALETTE_BGR[2].2);
     }
 
     // check that only 8 pixels were changed
@@ -739,9 +739,9 @@ fn bg_pt_base() {
     p.render_scanline_bg(0);
 
     let pixel = 0;
-    assert_eq!(p.pixeldata[pixel*3+0], 188);
-    assert_eq!(p.pixeldata[pixel*3+1], 000);
-    assert_eq!(p.pixeldata[pixel*3+2], 000);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[2].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[2].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[2].2);
 
     // use pt at 0x1000
     p.control = 0x10;
@@ -749,9 +749,9 @@ fn bg_pt_base() {
     p.render_scanline_bg(0);
 
     let pixel = 0;
-    assert_eq!(p.pixeldata[pixel*3+0], 252);
-    assert_eq!(p.pixeldata[pixel*3+1], 000);
-    assert_eq!(p.pixeldata[pixel*3+2], 000);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[1].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[1].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[1].2);
 }
 
 #[test]
@@ -807,14 +807,14 @@ fn palette_bg_color() {
     p.render_scanline_bg(0);
 
     let pixel = 0;
-    assert_eq!(p.pixeldata[pixel*3+0], 188);
-    assert_eq!(p.pixeldata[pixel*3+1], 000);
-    assert_eq!(p.pixeldata[pixel*3+2], 000);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[2].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[2].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[2].2);
 
     let pixel = 4;
-    assert_eq!(p.pixeldata[pixel*3+0], 124);
-    assert_eq!(p.pixeldata[pixel*3+1], 124);
-    assert_eq!(p.pixeldata[pixel*3+2], 124);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[0].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[0].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[0].2);
 }
 
 #[test]
@@ -858,15 +858,15 @@ fn nametable_choice() {
 
     p.reg_write(CONTROL, 0x00);
     p.render_scanline_bg(0);
-    assert_eq!(p.pixeldata[pixel*3+0], 252);
-    assert_eq!(p.pixeldata[pixel*3+1], 000);
-    assert_eq!(p.pixeldata[pixel*3+2], 000);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[1].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[1].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[1].2);
 
     p.reg_write(CONTROL, 0x01);
     p.render_scanline_bg(0);
-    assert_eq!(p.pixeldata[pixel*3+0], 124);
-    assert_eq!(p.pixeldata[pixel*3+1], 124);
-    assert_eq!(p.pixeldata[pixel*3+2], 124);
+    assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[0].0);
+    assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[0].1);
+    assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[0].2);
 }
 
 #[test]
@@ -900,81 +900,81 @@ fn attr_table_rendering() {
     // top left
     for i in 0..16 {
         let pixel = i;
-        assert_eq!(p.pixeldata[pixel*3+0], 252);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[1].2);
 
         // bottom row of tile
         let pixel = 7*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 252);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[1].2);
 
         // second tile down
         let pixel = 8*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 252);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[1].2);
     }
 
     // top right
     for i in 16..32 {
         let pixel = i;
-        assert_eq!(p.pixeldata[pixel*3+0], 032);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 168);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[5].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[5].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[5].2);
 
         // bottom row of tile
         let pixel = 7*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 032);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 168);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[5].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[5].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[5].2);
 
         // second tile down
         let pixel = 8*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 032);
-        assert_eq!(p.pixeldata[pixel*3+1], 000);
-        assert_eq!(p.pixeldata[pixel*3+2], 168);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[5].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[5].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[5].2);
     }
 
     // bottom left
     for i in 0..16 {
         let pixel = 16*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 000);
-        assert_eq!(p.pixeldata[pixel*3+1], 120);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[9].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[9].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[9].2);
 
         // bottom row of tile
         let pixel = (16+7)*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 000);
-        assert_eq!(p.pixeldata[pixel*3+1], 120);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[9].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[9].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[9].2);
 
         // second tile down
         let pixel = (16+8)*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 000);
-        assert_eq!(p.pixeldata[pixel*3+1], 120);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[9].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[9].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[9].2);
     }
 
     // bottom right
     for i in 16..32 {
         let pixel = 16*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 088);
-        assert_eq!(p.pixeldata[pixel*3+1], 064);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[0xC].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[0xC].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[0xC].2);
 
         // bottom row of tile
         let pixel = (16+7)*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 088);
-        assert_eq!(p.pixeldata[pixel*3+1], 064);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[0xC].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[0xC].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[0xC].2);
 
         // second tile down
         let pixel = (16+8)*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 088);
-        assert_eq!(p.pixeldata[pixel*3+1], 064);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[0xC].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[0xC].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[0xC].2);
     }
 
     p.render_scanline_bg(239);
@@ -982,9 +982,9 @@ fn attr_table_rendering() {
     // top right, this last row is a 4*2 tile group
     for i in 240..256 {
         let pixel = 239*256+i;
-        assert_eq!(p.pixeldata[pixel*3+0], 000);
-        assert_eq!(p.pixeldata[pixel*3+1], 120);
-        assert_eq!(p.pixeldata[pixel*3+2], 000);
+        assert_eq!(p.pixeldata[pixel*3+0], PALETTE_BGR[9].0);
+        assert_eq!(p.pixeldata[pixel*3+1], PALETTE_BGR[9].1);
+        assert_eq!(p.pixeldata[pixel*3+2], PALETTE_BGR[9].2);
     }
 }
 
@@ -1006,14 +1006,14 @@ fn nametable_rendering() {
 
     p.render_scanline_bg(0);
     for i in 0..8 {
-        assert_eq!(p.pixeldata[i*3+0], 124);
-        assert_eq!(p.pixeldata[i*3+1], 124);
-        assert_eq!(p.pixeldata[i*3+2], 124);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[0].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[0].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[0].2);
     }
     for i in 8..16 {
-        assert_eq!(p.pixeldata[i*3+0], 252);
-        assert_eq!(p.pixeldata[i*3+1], 000);
-        assert_eq!(p.pixeldata[i*3+2], 000);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[1].2);
     }
 
     p.mem.storeb(0x0AAF, 0xFF);
@@ -1021,9 +1021,9 @@ fn nametable_rendering() {
 
     p.render_scanline_bg(239);
     for i in 248..256 {
-        assert_eq!(p.pixeldata[239*256*3+i*3+0], 188);
-        assert_eq!(p.pixeldata[239*256*3+i*3+1], 000);
-        assert_eq!(p.pixeldata[239*256*3+i*3+2], 000);
+        assert_eq!(p.pixeldata[239*256*3+i*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[239*256*3+i*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[239*256*3+i*3+2], PALETTE_BGR[2].2);
     }
 
     // TODO test other 3 nametables
@@ -1043,50 +1043,50 @@ fn pattern_table_rendering() {
     // the whole scanline rendered should be filled with the universal bg at 0x3F00
     p.render_scanline_bg(0);
     for i in 0..SCREEN_WIDTH {
-        assert_eq!(p.pixeldata[i*3+0], 124);
-        assert_eq!(p.pixeldata[i*3+1], 124);
-        assert_eq!(p.pixeldata[i*3+2], 124);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[0].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[0].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[0].2);
     }
 
     // color 1
     p.mem.storeb(0x0000, 0xFF);
     p.render_scanline_bg(0);
     for i in 0..8 {
-        assert_eq!(p.pixeldata[i*3+0], 252);
-        assert_eq!(p.pixeldata[i*3+1], 000);
-        assert_eq!(p.pixeldata[i*3+2], 000);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[1].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[1].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[1].2);
     }
 
     // color 3
     p.mem.storeb(0x0008, 0xFF);
     p.render_scanline_bg(0);
     for i in 0..8 {
-        assert_eq!(p.pixeldata[i*3+0], 188);
-        assert_eq!(p.pixeldata[i*3+1], 040);
-        assert_eq!(p.pixeldata[i*3+2], 068);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[3].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[3].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[3].2);
     }
 
     // color 2
     p.mem.storeb(0x0000, 0x00);
     p.render_scanline_bg(0);
     for i in 0..8 {
-        assert_eq!(p.pixeldata[i*3+0], 188);
-        assert_eq!(p.pixeldata[i*3+1], 000);
-        assert_eq!(p.pixeldata[i*3+2], 000);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[2].2);
     }
 
     // multiple colors in one row of a tile
     p.mem.storeb(0x0000, 0x0F);
     p.render_scanline_bg(0);
     for i in 0..4 {
-        assert_eq!(p.pixeldata[i*3+0], 188);
-        assert_eq!(p.pixeldata[i*3+1], 000);
-        assert_eq!(p.pixeldata[i*3+2], 000);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[2].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[2].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[2].2);
     }
     for i in 4..8 {
-        assert_eq!(p.pixeldata[i*3+0], 188);
-        assert_eq!(p.pixeldata[i*3+1], 040);
-        assert_eq!(p.pixeldata[i*3+2], 068);
+        assert_eq!(p.pixeldata[i*3+0], PALETTE_BGR[3].0);
+        assert_eq!(p.pixeldata[i*3+1], PALETTE_BGR[3].1);
+        assert_eq!(p.pixeldata[i*3+2], PALETTE_BGR[3].2);
     }
 }
 
