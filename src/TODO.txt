@@ -1,10 +1,11 @@
 
-  * ppu mask
   * sprite zero hit (and sprite overflow? is that used anywhere?)
   * individual scanline rendering
+  * ppu mask
 
   * Everything in the APU
 
+  * scrolling
   * horizontal mirroring
   * a few more cartridge types
 

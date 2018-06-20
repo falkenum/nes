@@ -468,13 +468,44 @@ impl PPU {
         (self.control & 0x80) != 0
     }
 
-    pub fn render(&mut self, picture : &mut super::graphics::Picture) {
-        for i in 0..240 {
-            self.render_scanline_bg(i);
-            self.render_scanline_sprites(i);
-        }
+    pub fn render_scanline(&mut self, scanline : u8) {
+        self.render_scanline_bg(scanline);
+        self.render_scanline_sprites(scanline);
+    }
 
-        picture.update(&self.pixeldata);
+    // pub fn render_to_picture(&mut self, picture : &mut super::graphics::Picture) {
+    //     let show_bg = (self.mask & 0x08) != 0;
+    //     let show_sprites = (self.mask & 0x10) != 0;
+
+    //     if show_bg {
+    //         for i in 0..240 {
+    //             self.render_scanline_bg(i);
+    //         }
+    //     }
+    //     // if bg is masked, fill the screen with the universal bg color
+    //     else {
+    //         let bg_color = self.mem.loadb(0x3F00);
+    //         let bg_color = PALETTE_BGR[bg_color as usize];
+
+    //         for i in 0..(SCREEN_SIZE / 3) {
+    //             let i = i as usize;
+    //             self.pixeldata[i*3 + 0] = bg_color.0;
+    //             self.pixeldata[i*3 + 1] = bg_color.1;
+    //             self.pixeldata[i*3 + 2] = bg_color.2;
+    //         }
+    //     }
+
+    //     if show_sprites {
+    //         for i in 0..240 {
+    //             self.render_scanline_sprites(i);
+    //         }
+    //     }
+
+    //     picture.update(&self.pixeldata);
+    // }
+
+    pub fn get_pixeldata(&self) -> &[u8; SCREEN_SIZE] {
+        &self.pixeldata
     }
 }
 

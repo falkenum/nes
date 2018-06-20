@@ -45,16 +45,26 @@ pub fn run_emulator(cart : Cartridge) {
 
     cpu.send_reset();
 
+    let frame_len = Duration::new(0, 1_000_000_000u32 / 60);
     'running: loop {
-        let frame_len = Duration::new(0, 1_000_000_000u32 / 60);
         let frame_start_time = SystemTime::now();
 
         cpu_cycles = 0;
 
-        // cpu during rendering
-        while cpu_cycles < 114*241 {
-            cpu_cycles += cpu.step();
+        // step until 114 cycles passed
+        // render scanline
+        // when 241 scanlines rendered,
+        // step for 20 scanlines
+
+        for scanline in 0..240 {
+            while cpu_cycles < 114 {
+                cpu_cycles += cpu.step();
+            }
+
+            ppu.borrow_mut().render_scanline(scanline);
+            cpu_cycles -= 114;
         }
+
 
         // start vblank
         ppu.borrow_mut().set_vblank();
@@ -63,13 +73,12 @@ pub fn run_emulator(cart : Cartridge) {
         }
 
         // cpu during vblank
-        while cpu_cycles < 114*261 {
+        while cpu_cycles < 114*21 {
             cpu_cycles += cpu.step();
         }
 
-        // ppu rendering
         ppu.borrow_mut().clear_vblank();
-        ppu.borrow_mut().render(&mut picture);
+        picture.update(ppu.borrow().get_pixeldata());
         screen.update_and_show(&picture);
 
         for event in input.events() {
@@ -98,7 +107,7 @@ pub fn run_emulator(cart : Cartridge) {
         (duration.as_secs() as f64 +
          (duration.subsec_nanos() as f64) / 1_000_000_000f64);
 
-    println!("{:.2} frames/sec", freq);
+    println!("ran at an average of {:.2} frames/sec", freq);
 }
 
 trait Memory {

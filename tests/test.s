@@ -70,7 +70,7 @@ reset
 
     ldx #$80
     stx $2000
-    ldx #$1E
+    ldx #$16
     stx $2001
 
     ;; init OAM
