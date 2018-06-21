@@ -136,6 +136,7 @@ pub struct CPU {
     flags : CPUFlags,
     mem : CPUMem,
     interrupt_status : InterruptStatus,
+    cycles : usize,
 }
 
 use std::fmt;
@@ -163,6 +164,14 @@ enum InterruptStatus {
 }
 
 impl CPU {
+
+    pub fn step_for_scanlines(&mut self, num_scanlines : usize) {
+        const CYCLES_PER_SCANLINE : usize = 114;
+        while self.cycles < CYCLES_PER_SCANLINE*num_scanlines {
+            self.cycles += self.step();
+        }
+        self.cycles -= CYCLES_PER_SCANLINE;
+    }
 
     // does interrupt if requested
     // executes next instruction, returns cycles passed
@@ -289,6 +298,7 @@ impl CPU {
             y : 0,
             sp : 0xFF,
             pc : 0x8000,
+            cycles : 0,
             flags : CPUFlags {
                 n : false,
                 v : false,

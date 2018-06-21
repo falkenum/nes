@@ -40,31 +40,27 @@ pub fn run_emulator(cart : Cartridge) {
 
     use std::time::{ SystemTime, Duration };
     let start = SystemTime::now();
-    let mut cpu_cycles : usize;
     let mut num_frames : usize = 0;
 
     cpu.send_reset();
 
     let frame_len = Duration::new(0, 1_000_000_000u32 / 60);
+
     'running: loop {
         let frame_start_time = SystemTime::now();
 
-        cpu_cycles = 0;
-
-        // step until 114 cycles passed
+        // step until CYCLES_PER_SCANLINE cycles passed
         // render scanline
-        // when 241 scanlines rendered,
+        // when 240 scanlines rendered,
         // step for 20 scanlines
 
         for scanline in 0..240 {
-            while cpu_cycles < 114 {
-                cpu_cycles += cpu.step();
-            }
-
+            cpu.step_for_scanlines(1);
             ppu.borrow_mut().render_scanline(scanline);
-            cpu_cycles -= 114;
         }
 
+        // post render scanline
+        cpu.step_for_scanlines(1);
 
         // start vblank
         ppu.borrow_mut().set_vblank();
@@ -72,10 +68,8 @@ pub fn run_emulator(cart : Cartridge) {
             cpu.send_nmi();
         }
 
-        // cpu during vblank
-        while cpu_cycles < 114*21 {
-            cpu_cycles += cpu.step();
-        }
+        // cpu during vblank and pre render scanline
+        cpu.step_for_scanlines(21);
 
         ppu.borrow_mut().clear_vblank();
         picture.update(ppu.borrow().get_pixeldata());
