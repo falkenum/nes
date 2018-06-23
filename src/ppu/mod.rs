@@ -170,7 +170,10 @@ impl PPU {
             ADDRESS => 0,
             DATA    => {
                 let addr = self.address;
-                self.address += if self.control >> 2 == 1 { 0x20 } else { 0x01 };
+                let inc_amount =
+                    if (self.control & 4) >> 2 == 1 { 0x20 } else { 0x01 };
+
+                self.address = self.address.wrapping_add(inc_amount);
 
                 if addr < PALETTE_RAM_FIRST {
                     let ret = self.data_readbuf;
@@ -217,7 +220,9 @@ impl PPU {
             },
             DATA    => {
                 self.mem.storeb(self.address, val);
-                let inc_amount = if self.control >> 2 == 1 { 0x20 } else { 0x01 };
+                let inc_amount =
+                    if (self.control & 4) >> 2 == 1 { 0x20 } else { 0x01 };
+
                 self.address = self.address.wrapping_add(inc_amount);
             },
             _ => panic!("invalid ppu reg num"),

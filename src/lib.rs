@@ -83,6 +83,7 @@ pub fn run_emulator(cart : Cartridge) {
                     controller.borrow_mut().update(action, button),
             }
         }
+
         let frame_duration = frame_start_time.elapsed().unwrap();
 
         match frame_len.checked_sub(frame_duration) {

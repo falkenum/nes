@@ -170,7 +170,7 @@ impl CPU {
         while self.cycles < CYCLES_PER_SCANLINE*num_scanlines {
             self.cycles += self.step();
         }
-        self.cycles -= CYCLES_PER_SCANLINE;
+        self.cycles -= CYCLES_PER_SCANLINE*num_scanlines;
     }
 
     // does interrupt if requested

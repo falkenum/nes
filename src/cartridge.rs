@@ -61,9 +61,17 @@ impl Cartridge {
         let new_prgrom : Vec<u8> =
             data[prgrom_start..prgrom_end]
             .to_vec();
+
         let new_chrrom : Vec<u8> =
-            data[chrrom_start..chrrom_end]
-            .to_vec();
+            if num_chrrom_banks == 0 {
+                let mut v = Vec::new();
+                v.resize(CHRROM_BANK_SIZE, 0);
+                v
+            }
+            else {
+                data[chrrom_start..chrrom_end].to_vec()
+            };
+
 
         // TODO check if there is still more data (invalid file)
 
