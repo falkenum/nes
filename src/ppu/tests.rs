@@ -827,6 +827,7 @@ fn vram_inc() {
     p.reg_write(DATA, 0xFF);
     assert_eq!(p.address, 0x0001);
 
+    // setting bit 7 because it exposes a bug I previously had
     p.reg_write(CONTROL, 0b1000_0100);
     p.reg_write(DATA, 0xFF);
     assert_eq!(p.address, 0x0021);
