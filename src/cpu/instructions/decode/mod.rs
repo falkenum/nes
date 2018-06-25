@@ -49,7 +49,7 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
         AddrMode::AbsoluteX => {
             let addr = cpu.pc_getdb();
             // if there is a page crossing, add one cycle
-            if ((addr % 0x0100) + cpu.x as u16) > 0x00FF {
+            if num_cycles == 4 && ((addr & 0x00FF) + cpu.x as u16) > 0x00FF {
                 num_cycles += 1;
             }
             InstrArg::Address(cpu.absolute_x(addr))
@@ -57,7 +57,7 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
         AddrMode::AbsoluteY => {
             let addr = cpu.pc_getdb();
             // if there is a page crossing, add one cycle
-            if ((addr % 0x0100) + cpu.y as u16) > 0x00FF {
+            if num_cycles == 4 && ((addr & 0x00FF) + cpu.x as u16) > 0x00FF {
                 num_cycles += 1;
             }
             InstrArg::Address(cpu.absolute_y(addr))
@@ -85,14 +85,15 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
         AddrMode::IndirectY => {
             let b = cpu.pc_getb();
             // if there is a page crossing, add one cycle
-            if ((cpu.indirect(b as u16) % 0x0100) + cpu.y as u16) > 0x00FF {
+            if num_cycles == 5 &&
+                ((cpu.indirect(b as u16) & 0x00FF) + cpu.y as u16) > 0x00FF {
+
                 num_cycles += 1;
             }
             let addr = cpu.indirect_y(b);
             InstrArg::Address(addr)
         },
     };
-    // TODO add all the checks for page boundaries
 
     DecodeResult {
         num_cycles : num_cycles,

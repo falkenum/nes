@@ -56,7 +56,6 @@ impl Memory for CPUMem {
                 self.ppu.borrow_mut().reg_read((addr % PPUREGS_SIZE) as u8),
             OAMDMA => 0,
             CONTROLLER_1 => self.controller.borrow_mut().read_next(),
-            // CONTROLLER_1 => 0xFF,
             IO_FIRST...IO_LAST => 0, //TODO
             _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
         }
@@ -85,6 +84,7 @@ impl CPUMem {
         }
 
         // 514 cycles for each oamdma
+        // TODO odd/even timing?
         self.stalled_cycles = 514;
     }
 
