@@ -8,6 +8,7 @@ The emulator currently runs Donkey Kong without audio. In theory, it should also
   * implement PPU mask emphasis/grayscale
   * implement the APU (audio)
   * implement scrolling
+  * implement second controller
   * implement horizontal mirroring
   * implement more cartridge mappers besides mapper 0 (known as NROM, used by Donkey Kong and Super Mario Bros)
 # Dependencies
