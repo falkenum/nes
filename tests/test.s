@@ -1,96 +1,92 @@
-    *=$7FF0
-    ;; !to "test.nes", plain
-    !byte $4E, $45, $53, $1A, $02, $01
-    !align $FFFF, $8000, $00
+  *=$7FF0
+  ;; !to "test.nes", plain
+  !byte $4E, $45, $53, $1A, $02, $01
+  !align $FFFF, $8000, $00
 main
-    lda #$00
-    bpl main
+  jmp main
 
 nmi
 ;;; background palette
-    lda #$3F
-    sta $2006
-    lda #$00
-    sta $2006
+  lda #$3F                      ;2
+  sta $2006                     ;4
+  lda #$00                      ;2
+  sta $2006                     ;4
 
-    ldx #$01
-    stx $2007
+  ldx #$01                      ;2
+  stx $2007                     ;4
+  ldx #$15                      ;2
+  stx $2007                     ;4
 
-    ldx #$15
-    stx $2007
+  lda #$3F                      ;2
+  sta $2006                     ;4
+  lda #$05                      ;2
+  sta $2006                     ;4
 
-    ldx #$19
-    stx $2007
+  ldx #$19                      ;2
+  stx $2007                     ;4
 
-    ldx #$21
-    stx $2007
+  ldx #$00                      ;2
+  stx $2001                     ;4
+  ldx #$0A                      ;2
 
-;;; sprite palette
-    lda #$3F
-    sta $2006
-    lda #$11
-    sta $2006
+  ldy #$4F                      ;2
 
-    ldx #$27
-    stx $2007
-    stx $2007
-    stx $2007
+  ; no scrolling
+  ; lda #$00                      ;2
+  ; sta $2005                     ;4
+  ; sta $2005                     ;4
 
-;;; OAM
-    ldx #$00
-    stx $2003
+; 52 total to here
 
-    ldx #$00
-    stx $2004                   ; y
+-
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  iny                           ;2
+  bne -                         ;2, +1 taken and +1 for page boundary
+; 13 per loop, 12 last loop
 
-    ldx #$00
-    stx $2004                   ; tile
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
+  nop                           ;2
 
-    ldx #$00
-    stx $2004                   ; attr
+  stx $2001                     ;4
 
-    ldx #$00
-    stx $2004                   ; x
+  ; stx $2007                     ;4
 
-;;; no scrolling
-    ldx #$00
-    stx $2005
-    stx $2005
+  ; no scrolling
+  ; lda #$00                      ;2
+  ; sta $2005                     ;4
+  ; sta $2005                     ;4
 
-    rti
+  rti
 
 reset
-    sei
-    cld
+  sei
+  cld
 
-    bit $2002
+  bit $2002
 -
-    	bit $2002
-    	bpl -
+  	bit $2002
+  	bpl -
 
-    ldx #$80
-    stx $2000
-    ldx #$16
-    stx $2001
+  ldx #$80
+  stx $2000
+  ldx #$0A
+  stx $2001
 
-    ;; init OAM
-    ldx #$00
-    stx $2003
-
-    ldx #$FF
-    ldy #$FF
--
-    stx $2004
-    dey
-    cpy #$FF
-    bne -
-
-    jmp main
+  jmp main
 
 irq
-    rti
+  rti
 
-    !align $FFFF, $FFFA, $00
-    !word nmi
-    !word reset
-    !word irq
+  !align $FFFF, $FFFA, $00
+  !word nmi
+  !word reset
+  !word irq

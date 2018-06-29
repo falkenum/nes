@@ -474,8 +474,15 @@ impl PPU {
     }
 
     pub fn render_scanline(&mut self, scanline : u8) {
-        self.render_scanline_bg(scanline);
-        self.render_scanline_sprites(scanline);
+        let show_bg = (self.mask & 0x08) != 0;
+        let show_sprites = (self.mask & 0x10) != 0;
+        if show_bg {
+            self.render_scanline_bg(scanline);
+        }
+
+        if show_sprites {
+            self.render_scanline_sprites(scanline);
+        }
     }
 
     // pub fn render_to_picture(&mut self, picture : &mut super::graphics::Picture) {

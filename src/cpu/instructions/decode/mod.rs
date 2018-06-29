@@ -43,6 +43,13 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
         AddrMode::Immediate => InstrArg::Immediate(cpu.pc_getb()),
         AddrMode::Relative => {
             let b = cpu.pc_getb();
+            // if there is a page crossing, add one cycle
+            // TODO test
+            // TODO add 1 for taken branch
+            // TODO check for negative num
+            // if (cpu.pc & 0x00FF) + b as u16 > 0x00FF {
+            //     num_cycles += 1;
+            // }
             InstrArg::Address(cpu.relative(b))
         },
         AddrMode::Absolute => InstrArg::Address(cpu.pc_getdb()),

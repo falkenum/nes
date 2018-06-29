@@ -3,7 +3,7 @@ use super::reg_id::*;
 
 const SCREEN_WIDTH : usize = 256;
 
-// TODO test 8x16 sprite, flipping, ignore pt base
+// TODO test 8x16 sprite horizontal flip
 
 // TODO test sprite overlap
 // TODO test sprite and bg priority

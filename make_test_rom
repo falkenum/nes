@@ -24,23 +24,14 @@ echo -n -e '\x7e' >> $romfile
 echo -n -e '\x3c' >> $romfile
 echo -n -e '\x18' >> $romfile
 
-echo -n -e '\x66' >> $romfile
-echo -n -e '\x5f' >> $romfile
-echo -n -e '\xbf' >> $romfile
-echo -n -e '\xbf' >> $romfile
-echo -n -e '\xff' >> $romfile
-echo -n -e '\x7e' >> $romfile
-echo -n -e '\x3c' >> $romfile
-echo -n -e '\x18' >> $romfile
-
-echo -n -e '\x3C' >> $romfile
-echo -n -e '\x3C' >> $romfile
-echo -n -e '\xC3' >> $romfile
-echo -n -e '\xC3' >> $romfile
-echo -n -e '\xC3' >> $romfile
-echo -n -e '\xC3' >> $romfile
-echo -n -e '\x3C' >> $romfile
-echo -n -e '\x3C' >> $romfile
+# echo -n -e '\x66' >> $romfile
+# echo -n -e '\x5f' >> $romfile
+# echo -n -e '\xbf' >> $romfile
+# echo -n -e '\xbf' >> $romfile
+# echo -n -e '\xff' >> $romfile
+# echo -n -e '\x7e' >> $romfile
+# echo -n -e '\x3c' >> $romfile
+# echo -n -e '\x18' >> $romfile
 
 echo -n -e '\x00' >> $romfile
 echo -n -e '\x00' >> $romfile
@@ -50,6 +41,24 @@ echo -n -e '\x00' >> $romfile
 echo -n -e '\x00' >> $romfile
 echo -n -e '\x00' >> $romfile
 echo -n -e '\x00' >> $romfile
+
+# echo -n -e '\x3C' >> $romfile
+# echo -n -e '\x3C' >> $romfile
+# echo -n -e '\xC3' >> $romfile
+# echo -n -e '\xC3' >> $romfile
+# echo -n -e '\xC3' >> $romfile
+# echo -n -e '\xC3' >> $romfile
+# echo -n -e '\x3C' >> $romfile
+# echo -n -e '\x3C' >> $romfile
+
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
+# echo -n -e '\x00' >> $romfile
 
 echo -n -e '\xFC' >> $romfile
 echo -n -e '\xFC' >> $romfile
