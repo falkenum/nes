@@ -11,8 +11,21 @@ The emulator currently runs Donkey Kong without audio. In theory, it should also
   * implement horizontal mirroring
   * implement more cartridge mappers besides mapper 0 (known as NROM, used by Donkey Kong and Super Mario Bros)
 # Dependencies
-This should run on any system that has Rust, Cargo, and SDL2 installed (Windows, MacOS, or Linux). However, I have only built and tested this on a 64 bit Pop!_OS 18.04 Linux Machine. For me, installing dependencies would look like `sudo apt install rustc cargo libsdl2-2.0-0 libsdl2-dev`
+This should run on any system that has Rust, Cargo, and SDL2 installed (Windows, MacOS, or Linux). However, I have only built and tested this on a 64 bit Pop!_OS 18.04 Linux Machine. For me, installing dependencies would look like `sudo apt install rustc cargo libsdl2-2.0-0 libsdl2-dev`.
 # Installation
 Once dependencies are installed, building the project is as simple as cloning, changing to the project directory, and using Cargo. On Linux, this looks like `git clone https://github.com/falkenum/nes.git && cd nes && cargo build --release` in the terminal. The executable will be `target/release/nes`.
-# Running
+# Running and Controls
 Before running, you need a ROM to run. This type of file has the `.nes` extension. You can find ROMs online pretty easily. From the root project directory, once the project is built, run the emulator with `target/release/nes /path/to/rom.nes`.
+
+Controls are currently hard-coded as follows: 
+
+NES button | Key
+---------- | ---
+A | a
+B | s
+Select | z
+Start | x
+Up | Up arrow key
+Down | Down arrow key
+Left | Left arrow key
+Right | Right arrow key
