@@ -57,7 +57,7 @@ impl Memory for CPUMem {
             OAMDMA => 0,
             CONTROLLER_1 => self.controller.borrow_mut().read_next(),
             IO_FIRST...IO_LAST => 0, //TODO
-            _ => panic!(("couldn't map addr 0x{:04x} to CPU memory", addr)),
+            _ => panic!("couldn't map addr 0x{:04x} to CPU memory", addr),
         }
     }
     fn storeb(&mut self, addr : u16, val : u8) {
@@ -85,6 +85,7 @@ impl CPUMem {
 
         // 514 cycles for each oamdma
         // TODO odd/even timing?
+        // TODO figure out a better solution for stalling oamdma cycles
         self.stalled_cycles = 514;
     }
 
@@ -137,6 +138,7 @@ pub struct CPU {
     mem : CPUMem,
     interrupt_status : InterruptStatus,
     cycles : usize,
+    debug_mode : bool,
 }
 
 use std::fmt;
@@ -198,7 +200,13 @@ impl CPU {
 
         let decode_result = instructions::decode::fetch_and_decode(self);
         let op = decode_result.op;
+        let op_str = decode_result.op_str;
+
         cycles += decode_result.num_cycles;
+
+        if self.debug_mode {
+            println!("at PC 0x{:04X}: {}", self.pc, op_str);
+        }
 
         (op.instr)(self, op.arg);
 
@@ -284,13 +292,13 @@ impl CPU {
         let apu  = ComponentRc::new(APU::new());
         let controller = ComponentRc::new(Controller::new());
 
-        CPU::new(cart, ppu, apu, controller)
+        CPU::new(cart, ppu, apu, controller, false)
     }
 
     pub fn new(cart : ComponentRc<Cartridge>,
                ppu  : ComponentRc<PPU>,
                apu  : ComponentRc<APU>,
-               controller : ComponentRc<Controller> ) -> CPU {
+               controller : ComponentRc<Controller>, debug_mode : bool) -> CPU {
 
         CPU {
             a : 0,
@@ -316,6 +324,7 @@ impl CPU {
                 stalled_cycles : 0,
             },
             interrupt_status : InterruptStatus::None,
+            debug_mode : debug_mode,
         }
     }
 }

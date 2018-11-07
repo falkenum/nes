@@ -55,7 +55,7 @@ impl Controller {
             self.stored_buttons = self.current_buttons;
         }
 
-        // println!("{:?}", self);
+        println!("{:?}", self);
     }
 
     pub fn read_next(&mut self) -> u8 {
@@ -66,6 +66,7 @@ impl Controller {
         ret
     }
 
+    // buttons are continually loaded into shift register when strobe is set
     pub fn set_strobe(&mut self, val : u8) {
         self.strobe = (val & 1) == 1;
         self.stored_buttons = self.current_buttons;
