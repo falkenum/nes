@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 mod instructions;
+mod debugger;
 
 use self::instructions::InstrArg;
 use cartridge::Cartridge;
@@ -178,7 +179,6 @@ impl CPU {
     // does interrupt if requested
     // executes next instruction, returns cycles passed
     pub fn step(&mut self) -> usize {
-
         let mut cycles = 0;
 
         const INTERRUPT_CYCLES : usize = 7;
