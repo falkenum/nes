@@ -55,7 +55,7 @@ impl Controller {
             self.stored_buttons = self.current_buttons;
         }
 
-        println!("{:?}", self);
+        // println!("{:?}", self);
     }
 
     pub fn read_next(&mut self) -> u8 {

@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests;
 mod instructions;
-mod debugger;
 
 use self::instructions::InstrArg;
 use cartridge::Cartridge;
@@ -139,7 +138,6 @@ pub struct CPU {
     mem : CPUMem,
     interrupt_status : InterruptStatus,
     cycles : usize,
-    debug_mode : bool,
 }
 
 use std::fmt;
@@ -200,13 +198,8 @@ impl CPU {
 
         let decode_result = instructions::decode::fetch_and_decode(self);
         let op = decode_result.op;
-        let op_str = decode_result.op_str;
 
         cycles += decode_result.num_cycles;
-
-        if self.debug_mode {
-            println!("at PC 0x{:04X}: {}", self.pc, op_str);
-        }
 
         (op.instr)(self, op.arg);
 
@@ -292,13 +285,13 @@ impl CPU {
         let apu  = ComponentRc::new(APU::new());
         let controller = ComponentRc::new(Controller::new());
 
-        CPU::new(cart, ppu, apu, controller, false)
+        CPU::new(cart, ppu, apu, controller)
     }
 
     pub fn new(cart : ComponentRc<Cartridge>,
                ppu  : ComponentRc<PPU>,
                apu  : ComponentRc<APU>,
-               controller : ComponentRc<Controller>, debug_mode : bool) -> CPU {
+               controller : ComponentRc<Controller>) -> CPU {
 
         CPU {
             a : 0,
@@ -324,7 +317,6 @@ impl CPU {
                 stalled_cycles : 0,
             },
             interrupt_status : InterruptStatus::None,
-            debug_mode : debug_mode,
         }
     }
 }

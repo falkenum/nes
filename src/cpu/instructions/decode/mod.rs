@@ -23,9 +23,6 @@ pub enum AddrMode {
 pub struct DecodeResult {
     pub num_cycles : usize,
     pub op : Op,
-
-    // for debug mode
-    pub op_str : String,
 }
 
 pub struct Op {
@@ -39,16 +36,12 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
 
     let (mode, instr) = constants::OPS[op];
 
-    // TODO don't generate op_str if not in debug mode
-    let mut op_str = String::from(constants::INSTR_STR[op]);
-
     let mut num_cycles = constants::CYCLE_TABLE[op];
 
     let arg = match mode {
         AddrMode::Implied => InstrArg::Implied,
         AddrMode::Immediate => {
             let b = cpu.pc_getb();
-            op_str.push_str(&format!(" #${:02X}", b));
             InstrArg::Immediate(b)
         },
         AddrMode::Relative => {
@@ -63,12 +56,10 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
 
             let addr = cpu.relative(b);
 
-            op_str.push_str(&format!(" ${:04X}", addr));
             InstrArg::Address(addr)
         },
         AddrMode::Absolute => {
             let addr = cpu.pc_getdb();
-            op_str.push_str(&format!(" ${:04X}", addr));
             InstrArg::Address(addr)
         },
         AddrMode::AbsoluteX => {
@@ -78,7 +69,6 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
             if num_cycles == 4 && ((addr & 0x00FF) + cpu.x as u16) > 0x00FF {
                 num_cycles += 1;
             }
-            op_str.push_str(&format!(" ${:04X},X", addr));
             InstrArg::Address(cpu.absolute_x(addr))
         },
         AddrMode::AbsoluteY => {
@@ -87,32 +77,26 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
             if num_cycles == 4 && ((addr & 0x00FF) + cpu.x as u16) > 0x00FF {
                 num_cycles += 1;
             }
-            op_str.push_str(&format!(" ${:04X},Y", addr));
             InstrArg::Address(cpu.absolute_y(addr))
         },
         AddrMode::ZeroPage => {
             let b = cpu.pc_getb();
-            op_str.push_str(&format!(" ${:02X}", b));
             InstrArg::Address(cpu.zero_page(b))
         },
         AddrMode::ZeroPageX => {
             let b = cpu.pc_getb();
-            op_str.push_str(&format!(" ${:02X},X", b));
             InstrArg::Address(cpu.zero_page_x(b))
         },
         AddrMode::ZeroPageY => {
             let b = cpu.pc_getb();
-            op_str.push_str(&format!(" ${:02X},Y", b));
             InstrArg::Address(cpu.zero_page_y(b))
         },
         AddrMode::Indirect => {
             let addr = cpu.pc_getdb();
-            op_str.push_str(&format!(" (${:04X})", addr));
             InstrArg::Address(cpu.indirect(addr))
         },
         AddrMode::IndirectX => {
             let b = cpu.pc_getb();
-            op_str.push_str(&format!(" (${:02X},X)", b));
             InstrArg::Address(cpu.indirect_x(b))
         },
         AddrMode::IndirectY => {
@@ -123,7 +107,6 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
 
                 num_cycles += 1;
             }
-            op_str.push_str(&format!(" (${:02X}),X", b));
             let addr = cpu.indirect_y(b);
             InstrArg::Address(addr)
         },
@@ -135,7 +118,6 @@ pub fn fetch_and_decode(cpu : &mut CPU) -> DecodeResult {
             instr : instr,
             arg : arg,
         },
-        op_str : op_str,
     }
 }
 

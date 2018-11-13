@@ -20,7 +20,7 @@ use input::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub fn run_emulator(cart : Cartridge, debug_mode : bool) {
+pub fn run_emulator(cart : Cartridge) {
     let mut screen = Screen::new();
     let mut input = screen.emulator_input();
 
@@ -30,7 +30,7 @@ pub fn run_emulator(cart : Cartridge, debug_mode : bool) {
     let controller = ComponentRc::new(Controller::new());
 
     let mut cpu = CPU::new(
-        cart.new_ref(), ppu.new_ref(), apu.new_ref(), controller.new_ref(), debug_mode);
+        cart.new_ref(), ppu.new_ref(), apu.new_ref(), controller.new_ref());
 
     // current version of rust-sdl2 requires that I use a
     // TextureCreator that is alive as long as the Texture is
