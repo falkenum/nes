@@ -1,28 +1,57 @@
 #![allow(dead_code)]
 
 extern crate sdl2;
+use sdl2::Sdl;
 
 pub mod cartridge;
 mod cpu;
-mod graphics;
+
 mod ppu;
+mod graphics;
+
 mod apu;
-mod input;
+mod audio;
+
 mod controller;
+mod input;
 
 use cartridge::Cartridge;
-use controller::Controller;
 use cpu::CPU;
+
 use ppu::PPU;
+use graphics::EmulatorGraphics;
+
 use apu::APU;
-use graphics::Screen;
-use input::*;
+use audio::EmulatorAudio;
+
+use controller::Controller;
+use input::{ EmulatorEvent, EmulatorInput };
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
+struct EmulatorContext {
+    graphics : EmulatorGraphics,
+    input : EmulatorInput,
+    audio : EmulatorAudio,
+    sdl_context : Sdl,
+}
+
+impl EmulatorContext {
+    pub fn new() -> EmulatorContext {
+        let sdl_context = ::sdl2::init().unwrap();
+
+        EmulatorContext {
+            graphics : EmulatorGraphics::new(&sdl_context),
+            input : EmulatorInput::new(&sdl_context),
+            audio : EmulatorAudio::new(&sdl_context),
+            sdl_context : sdl_context,
+        }
+    }
+}
+
 pub fn run_emulator(cart : Cartridge) {
-    let mut screen = Screen::new();
-    let mut input = screen.emulator_input();
+    let mut emulator = EmulatorContext::new();
 
     let cart  = ComponentRc::new(cart);
     let ppu   = ComponentRc::new(PPU::new(cart.new_ref()));
@@ -31,12 +60,6 @@ pub fn run_emulator(cart : Cartridge) {
 
     let mut cpu = CPU::new(
         cart.new_ref(), ppu.new_ref(), apu.new_ref(), controller.new_ref());
-
-    // current version of rust-sdl2 requires that I use a
-    // TextureCreator that is alive as long as the Texture is
-    let picture_creator = screen.picture_creator();
-    let mut picture = picture_creator.create_picture();
-
 
     use std::time::{ SystemTime, Duration };
     let start = SystemTime::now();
@@ -72,10 +95,9 @@ pub fn run_emulator(cart : Cartridge) {
         cpu.step_for_scanlines(21);
 
         ppu.borrow_mut().clear_vblank();
-        picture.update(ppu.borrow().get_pixeldata());
-        screen.update_and_show(&picture);
+        emulator.graphics.update(ppu.borrow().get_pixeldata());
 
-        for event in input.events() {
+        for event in emulator.input.events() {
             match event {
                 EmulatorEvent::Exit => break 'running,
                 EmulatorEvent::Continue => (),

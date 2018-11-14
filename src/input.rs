@@ -69,9 +69,9 @@ impl EmulatorInput {
 
         self.pump.poll_iter().map(event_receiver).collect()
     }
-    pub fn new(pump : EventPump) -> EmulatorInput {
+    pub fn new(sdl_context : &::sdl2::Sdl) -> EmulatorInput {
         EmulatorInput {
-            pump : pump,
+            pump : sdl_context.event_pump().unwrap(),
         }
     }
 }
