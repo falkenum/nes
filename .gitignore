@@ -4,4 +4,6 @@
 assembler
 disassembler
 roms/
+*.nes
+*.o
 .#*

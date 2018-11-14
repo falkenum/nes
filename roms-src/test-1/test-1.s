@@ -21,8 +21,42 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 
 ; CHR ROM
 .segment "TILES"
-.incbin "test-1.chr"
-.incbin "test-1.chr"
+
+.byte $66
+.byte $7F
+.byte $FF
+.byte $FF
+.byte $FF
+.byte $7E
+.byte $3C
+.byte $18
+
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+
+.byte $FC
+.byte $FC
+.byte $C0
+.byte $F8
+.byte $F8
+.byte $C0
+.byte $C0
+.byte $C0
+
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
+.byte $00
 
 ; Vectors, defined in CODE segment.
 .segment "VECTORS"
