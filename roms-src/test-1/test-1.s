@@ -1,8 +1,3 @@
-; NTSC NES palette test
-; Brad Smith, 2015
-;
-; displays the NES palette
-;
 
 ; iNES header
 .segment "HEADER"
