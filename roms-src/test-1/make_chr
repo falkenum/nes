@@ -1,19 +1,8 @@
 #!/bin/bash
 
-# cd ~/projects/src/nes/
+romfile="test-1.chr"
 
-# if [ $# -ne 1 ]; then
-#   echo need one arg
-# fi
-
-# romfile=`echo $1 | sed 's/\.s/\.nes/'`
-romfile="tests/test.nes"
-srcfile="tests/test.s"
-./assembler -o $romfile $srcfile
-
-# chrfile=`echo $1 | sed 's/\.s/\.chr/'`
-# cat $chrfile >> $romfile
-fsize=`stat --printf="%s" $romfile`
+echo > $romfile
 
 echo -n -e '\x66' >> $romfile
 echo -n -e '\x7f' >> $romfile
@@ -79,6 +68,6 @@ echo -n -e '\x00' >> $romfile
 echo -n -e '\x00' >> $romfile
 
 fsize=`stat --printf="%s" $romfile`
-for i in `seq 1 $((40976 - $fsize))`; do
+for i in `seq 1 $((4096 - $fsize))`; do
 	echo -n -e '\x00' >> $romfile
 done

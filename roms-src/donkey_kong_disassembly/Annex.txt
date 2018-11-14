@@ -1,0 +1,356 @@
+Variables
+
+	$0C Animation/general purpose flag? (Barrel animation update flag?)
+	$10	Copy of PPU Control Register 1
+	$11	Copy of PPU Control Register 2
+	$12	Copy of PPU Scroll Register Low
+	$13	Copy of PPU Scroll Register High
+	$15	Copy of gamepad 1 bits
+	$16 	Copy of gamepad 2 bits
+	
+	$18-1F  LFSR (Linear Feedback Shift Register - a pseudo-random number generator) 
+	
+	Apparently, bytes $20, $24, $28 and $2C are a sign flag for each BCD number, although they are never used in the game. 
+	$21-23	BCD high score
+	$25-27 	BCD player 1 score
+	$29-2B  BCD player 2 score
+	$2D-2F	BCD bonus counter
+	
+	$34	Divider counter
+	$35-3E	In-game counters
+	$3F-45	In-game divide-by-10 counters
+	
+		Timers
+			$40 	Next flame spawn time, on stage 4
+			$41-42	Bonus score sprite duration
+	
+	$4E	Unknown flag
+			0 = demo mode/normal gameplay
+			1 = otherwise (game over, game select, etc.)
+	$4F	Unknown flag
+			0 = Gameplay frozen?
+			1 = Gameplay unfrozen?
+	$50	Game type
+			0 = 1 player game A
+			1 = 1 player game B
+			2 = 2 player game A
+			3 = 2 player game B
+	$51	1 player/2 player game flag
+			#18 = 1 Player
+			#1C = 2 Players
+	$52	Current player playing
+			0 = Player 1
+			1 = Player 2
+	$53	Current stage
+			1 = Barrels
+			3 = Elevators
+			4 = Rivets
+			(2 is unused)
+	$54	Level number (off by one, starts with #00)
+			0 = Level 1
+			1 = Level 2, etc.
+	$55	Current player lives
+	$56	Current 4-axis movement (excluding jump) 
+			0 = None
+			1 = Right
+			2 = Left
+			4 = Down
+			8 = Up
+	$57	Jumpman's horizontal orientation
+			1 = Right
+			2 = Left
+	$58	Demo mode flag
+			1 = Demo mode
+			0 = Not in demo mode
+			
+	$59	Jumpman's platform number, counting from bottom to top, starting at 1
+			Note: in the barrel and rivet stages, the number is exact; in the elevator stage, it is approximate
+	$5A	"Jumpman is in contact with a platform" flag (1 = in contact, 0 = not in contact)
+	$5B	"Top of a ladder animation counter" - Jumpman climbing a ladder, in contact with a platform
+	$5C	"Middle of the ladder cycling counter" - Used for animation updates when Jumpman is climbing a ladder, without being in contact with a platform (a vertical cycling counter #01-#06)
+	$5D	Current enemy object index			
+	$5E-64	Barrel status 
+			#01 = rolling along platform
+			#02 = rolling down a ladder
+			#08 = falling off a platform's end (and rolling along)
+			#10 = rebounding after falling and hitting a platform
+			#20 = rolling off screen after falling and hitting a platform
+			#40 = "escaping" from Jumpman's hammer (on a crowded platform), rolling down as if there was a ladder
+			#80 = in DK's hands, facing forward
+			#81 = in DK's hands, prior to being rolled
+			
+			Note: the next three states are used by barrels thrown by DK either straight down or in a zigzag pattern or diagonally to the right.
+			The thing is they are not rolling along platforms. 
+			#C0 = falling and not hitting anything 
+			#C1 = falling and colliding with a platform
+			#C2 = colliding with the bottom platform
+			
+	$68-$6C	Platform floor for the barrels on stage 1
+	$72-76	Sprite tile number for barrels on stage 1
+	$7D	Used to indicate if a barrel has reached a platform segment transition
+	$7E-83	Platform attributes - Total amount of barrels and Jumpman present on every platform
+		
+	$85		Used as regulator of the next Jumpman's top-left tile
+				00 = Use #08 as next tile 
+				01 = Use #00 as next tile
+	$8A-8F	Barrel (stage 1)/springs (stage 3) step counter?
+	
+	$94 Jumpman jumping - ???
+	$95 Jumpman jumping - vertical position of floor, used to stop the jump
+		#FF	Jumpman has missed the floor when falling and will die (used as a signal)		
+	$96	Jumpman status
+			01 = Walking
+			04 = Jumping
+			02 = On a ladder
+			08 = Falling down
+			0A = Using hammer
+			FF = Dead/dying
+	$97	Current Jumpman's top-left tile
+	$98 Jumpman's death - # of sprite rotations (from 0 to 5)
+	$99 Fire enemy AI status
+		#00 - Moving towards the right side
+		#01 - Moving towards the left side
+	$9A	Stage 4 victory flag			
+	$9B	Odd/even Jumpman step flag (alternated between 0 and 1 on each Jumpman horizontal step)
+	$9C	Horizontal distance between object boundary boxes
+	$9D	Vertical distance between object boundary boxes
+	$9E Jumpman jumping - Counter used to update Jumpman's horizontal position every two frames
+	$9F	Hammer sprite index/offset? - Step counter?
+		Sequence of values when walking while using the hammer: 1, 1, 2, 3, 3, 4, 5, 5, 6
+	    Sequence when standing while using the hammer: 2, 2, 2, 2, 5, 5, 5, 5, 5
+			02 = Hammer up?
+			05 = Hammer forward?
+	$A0	Hammer # currently in use
+			00 = No hammer in use
+			01 = Hammer 1 in use
+			02 = Hammer 2 in use
+	$A1	Adjusted horizontal position of Jumpman when it's standing on a platform and climbs a ladder
+	$A2 Jumpman "hammer time" bitmask counter - it starts at #20 and shifts left to #40 and then to #80.
+			When it reaches #00 on the next shift, it triggers an update of flag $9F
+	$A3-A6	Barrel attribute - Target vertical position when rolling down a ladder
+	$AD	Oil can fire state
+			00 = Do not draw/update oil can fire
+			01 = Draw oil can fire for the first time
+			02 = Fire already drawn, waiting for counter expiration
+			03 = Counter expired, draw a frame (alternating between frames)
+	$AE	Current flame enemy index
+	$AF-B2		Flame enemies 1-4 status
+			#00
+			#01	Moving right
+			#02 Moving left
+			#03	Moving up
+			#06	Spawning
+			#08 Flame jumping from oil can
+			#10
+			#13	Moving down
+			#20
+			#FF Transition - choose a new state?
+	$B3-B6		Flame enemies 1-4 AI status
+			01 = Moving away from Jumpman - Moving right
+			02 = Moving towards Jumpman - Moving left
+	$B7 Pauline's animation frame toggle counter
+	$B8	Pauline's animation step counter
+	$B9-BD Target vertical position for flames on stage 1, when moving on ladders?
+	$BE	Flag - Seems to be 1 = "update Jumpman's frame"
+	$BF Object hit by hammer flag/counter
+		#00 - No object hit by hammer
+		#01-#0B - Object hit animation counter
+	$C0		Target vertical position when a barrel is escaping from Jumpman (barrel state #40)
+	$C1-C8	"Rivet removed" flag array
+			0 = present
+			1 = removed
+	$C9-CB	Bonus object removed array
+			0 = present
+			1 = removed
+	$CC		Object removal meta-sprite tile dimensions
+
+	$D2	Elevator index (on stage 3)
+	$D2-D5	Flame enemy relative position calculated flag? (stages 1,4)
+			
+	$DA	Jumpman standing on elevator flag
+			00 = not standing on any elevator
+			01 = standing on elevator going up
+			02 = standing on elevator going down
+	$DB-DC	Enemy flame target vertical position when moving over a ladder
+	$E0-E3	Enemy flame platform number
+	$E4-E7	Enemy flame step counter
+	$E8-EB  Enemy flame ladder step counter 		
+	$EC-EF	Enemy flame horizontal location relative to Jumpman
+		#01 = to the left of Jumpman
+		#02 = to the right of Jumpman
+	$F0-FB	Audio stuff?
+	///// Old interpretation
+	$F4	Sequence number of note for audio channel 1
+	$F8	Sequence number of note for audio channel 2
+	$FA	Sequence number of note for audio channel 3
+	//// New interpretation
+	$F0 Current sound effect playing (if any) - same bitmasks as $FF
+	$F3	Sequence number of note for audio channel 1
+	$F9	Sequence number of note for audio channel 2
+	$FA	Sequence number of note for audio channel 3
+	$FB Translated track number
+	$FC Continuous (looped) music track number (as a bitmask)
+		#00 	Silent
+		#02		Stage 1
+		#04 	Unknown
+		#10		Stage 4
+		#20		Time running out
+		#40		Hammer time
+	$FD	Non-looped music track number (as a bitmask)
+		#01		Starting a game
+		#02		Stage 1 victory
+		#03		Stage 3 victory?
+		#04		Stage 4 victory
+		#08		Starting a stage
+		#10		DK about to fall (stage 4 victory)
+		#20		Bonus event
+		#40		Pause
+		#80		Title
+	$FE SFX  (as a bitmask)
+		#01		Spring falling from top platform / DK falling in victory sequence
+		#02		Spring bouncing		
+		#80		DK stomping chest / Barrel hitting oil can / Jumpman impacting a platform before dying
+	$FF Sound FX (as a bitmask) - ordered by priority (a lower number effect gets played when a higher number effect wants to be played at the same time)
+		#01		Death 
+		#02		Object hit by hammer
+		#04     Jumpman jump
+		#08		Jumpman step (when walking))
+		
+			
+
+	$0100 	Local copy of Audio status register
+	
+	$0200-02FF	Sprite/object area (4 bytes per sprite)
+				Byte 0 		Vertical position
+				Byte 1		Tile number
+				Byte 2 		Attributes (flipping/priority/palette)
+				Byte 3		Horizontal position
+	
+	
+	$0330-$036F	BKG tiles update list (in the same format that the VRAM Write routine uses)
+	
+				$0330 	list size (in bytes)
+					$0331-...	Data bytes
+				Last byte must be a  #00 (end of list marker)
+				
+	$0400-0401	Stage number player 1/player 2
+	$0402-0403	Level number player 1/player 2
+	$0404-0405	Lives player 1/player 2
+	$0406-0407	Game over player 1/player 2 (1 = Game over)
+	$0408-0409	Extra life awarded flag (1 = awarded, 0 = not awarded)
+	$040B		Unknown copy of different variables, seems to have no real effect on the game
+	$0417-0420	Barrel zig-zag substate
+					#00 - Zig-zagging to the right
+					#01 - Zig-zagging to the left
+					
+	$0421-042A	Barrel freefalling trajectory state
+					#01 = Falling straight down
+					#02 = Falling diagonally to the right
+					#03 = Falling in a zig-zag pattern
+	$0451-0452  Hammer 1/2 available (1 = available, 0 = not available)	
+	$044F		Counter of removed rivets (stage 4)
+	$0503		DK animation flag
+					1 = animate DK
+					0 = do not animate DK
+	$0505		BKG update flag?
+				#10 =	DK frame change
+	$0507-???	Stored high score
+	$050B	Demo mode - demo movement processing has started flag
+				#00 = not started
+				#01 = started
+	$050C	Demo mode - movement duration counter
+	$050D	Demo mode - movement type
+				#00 - No movement
+				#01 - Right
+				#02 - Left
+				#05 - Jump
+				#08 - Up
+	$050E	Demo mode - movement index
+	$0510	Game select sprite (asterisk) - Horizontal position
+	$0511	Game select sprite (asterisk) - Vertical position
+	$0512	"Select" is pressed flag
+	$0514	Saved gamepad bits (to avoid repetitions)
+	$0515	Barrel rolling flag
+				#00 = The barrel DK is holding has not yet been rolled to the right
+				#01 = The barrel has been rolled 
+	$0516	Pause mode
+			1 = Paused
+			0 = Unpaused
+	$0517	Seems to be a pause mode transition counter. When pause mode is engaged or disengaged, sprites remain frozen on screen and the pause music plays during the transition.
+			
+	$0518	Silent attract screen iterations
+	$0519	Looped music track number backup (used when playing the hammer music)
+
+----------------------------------------------------------------------------	
+	Sprite information:
+	
+	The first 4 sprites in the sprite area seem to always be Jumpman's 4 sprites.
+	That is sprites 0-3, in addresses $0200-$020F.
+	
+	
+	Some sprite positions:
+	
+		Sprite #	Address		
+				$2C0-$2CF	bonus score sprites (2 tiles per sprite, 2 bonus score sprites max.)
+		52-55		$2D0-$2DF	the two hammers, barrels stage
+		56-57		$2E0-$2E7 	oil can fire, barrels stage
+		58-63		$2E8-$2FF 	Pauline
+	
+	
+	Sprite byte 2 (ID/status)
+	
+		Mario			00(when facing right)/40(when facing left)
+		Pauline			01
+		Oil can fire		02
+		Hammers			03
+		Fire enemy, stage 1	02/42
+		Bonus score		01
+		
+	Most likely, things like these are encoded in this byte:
+		-Horizontal mirroring for the sprite
+		-Collision with Jumpman triggers death 
+		
+	
+	Sprite tiles:
+	
+	00-0B	Jumpman, frames 0-11
+			There may be unused Jumpman tiles in the game, check
+	14-17	Jumpman carrying the hammer, frame A
+	18-1B	Jumpman carrying the hammer, frame B
+	24-27	Jumpman climbing a ladder (the 2 different frames are produced by horizontal flipping)
+	30-33	Barrel destroyed, frame A
+	34-37	Barrel destroyed, frame B
+	38-3B	Barrel destroyed, frame C
+	3C-3F	Barrel destroyed, frame D
+	40-57	DK falling upside down (after winning stage 4)
+	60-63	Jumpman finishing the climb of a ladder, frame A
+	64-67	Jumpman finishing the climb of a ladder, frame B
+	68-6B	Jumpman post-ladder climb, facing towards the background
+	6C-6F	Jumpman rotating while dying, frame D
+	70-73	Jumpman rotating while dying, frame A
+	74-77	Jumpman rotating while dying, frame B
+	78-7B	Jumpman rotating while dying, frame C
+	7C-7F	Jumpman dead
+	80-8F	Barrel rolling, frames 0-3
+	90-93	Barrel in free fall, frame A
+	94-97	Barrel in free fall, frame B
+	98-9F	Fire enemy (barrels and elevators stage), frames A-B
+	A0-A1	Metallic platform
+	A2	Asterisk (in game select screen)
+	A8-AF	Fire enemies (rivets stage), frames A-B
+	C0-C3	Spring, extended
+	C4-C7	Spring, compressed
+	C8-CB	Heart (when winning a level)
+	D0-D3	Bonus score, left parts
+	D4	Bonus score, right part ("00")
+	D5-D6 	Pauline's head
+	D7-DA	Pauline's lower part, frame A
+	DB-DE 	Pauline's lower part, frame B
+	F6-F7 	Hammer in vertical orientation
+	F8-F9	Hammer in horizontal orientation, facing left
+	FA-FB	Hammer in horizontal orientation, facing right
+	FC-FD 	Oil can fire, frame A
+	FE-FF 	Oil can fire, frame B
+	
+	
+

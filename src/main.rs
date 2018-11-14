@@ -8,12 +8,12 @@ fn main() {
     match args.len() {
         1 => panic!("need rom filename"),
         2 => (),
-//         3 =>
-//             if args[2] == String::from("-d") {
-//                 debug_mode = true
-//             } else {
-//                 panic!("invalid argument {}", args[2])
-//             },
+        // 3 =>
+        //     if args[2] == String::from("-d") {
+        //         debug_mode = true
+        //     } else {
+        //         panic!("invalid argument {}", args[2])
+        //     },
         _ => panic!("too many arguments"),
     }
 
