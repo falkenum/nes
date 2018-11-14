@@ -21,13 +21,13 @@ impl EmulatorGraphics {
                           .create_texture_streaming(FORMAT, WIDTH as u32,
                                                     HEIGHT as u32)
                           .unwrap();
-        texture.update(None, &pixeldata, WIDTH*BYTES_PER_PIXEL).unwrap();
+        texture.update(None, pixeldata, WIDTH*BYTES_PER_PIXEL).unwrap();
 
         self.canvas.copy(&texture, None, None).unwrap();
         self.canvas.present();
     }
 
-    pub fn new(sdl_context : &::sdl2::Sdl) -> EmulatorGraphics {
+    pub fn new(sdl_context : &::Sdl) -> EmulatorGraphics {
         let video_subsystem = sdl_context.video().unwrap();
 
         let window = video_subsystem.window("NES", WINDOW_WIDTH, WINDOW_HEIGHT)
