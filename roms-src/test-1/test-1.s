@@ -31,14 +31,8 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 .byte $3C
 .byte $18
 
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
+.dword $00000000
+.dword $00000000
 
 .byte $FC
 .byte $FC
@@ -49,14 +43,8 @@ INES_SRAM   = 0 ; 1 = battery backed SRAM at $6000-7FFF
 .byte $C0
 .byte $C0
 
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
-.byte $00
+.dword $00000000
+.dword $00000000
 
 ; Vectors, defined in CODE segment.
 .segment "VECTORS"
