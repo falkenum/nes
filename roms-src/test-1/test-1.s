@@ -69,6 +69,9 @@ oam:     .res 256
 .segment "CODE"
 
 main:	
+	.repeat 509 ; large number of nops in loop to reduce NMI jitter
+		nop
+	.endrepeat
 	jmp main
 
 nmi:	
@@ -96,13 +99,13 @@ nmi:
 	ldx #$0A                      ;2
 
 	ldy #$4F                      ;2
+; 52 total to here
 
 	; no scrolling
 	; lda #$00                      ;2
 	; sta $2005                     ;4
 	; sta $2005                     ;4
 
-; 52 total to here
 
 	:	
 	nop                           ;2
@@ -121,10 +124,10 @@ nmi:
 	nop                           ;2
 	nop                           ;2
 	nop                           ;2
+	nop                           ;2
+	nop                           ;2
 
 	stx $2001                     ;4
-
-	; stx $2007                     ;4
 
 	; no scrolling
 	; lda #$00                      ;2

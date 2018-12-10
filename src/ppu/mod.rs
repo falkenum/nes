@@ -19,14 +19,19 @@ pub struct PPU {
     oam_addr            : u8,
     scroll              : u8,
 
+    // https://wiki.nesdev.com/w/index.php/PPU_scrolling
     address             : u16,
     address_first_write : bool,
+
+    // TODO is this var needed?
     address_first_val   : u8,
 
     // required to correctly emulate reads from $2007,
     // look at https://wiki.nesdev.com/w/index.php/PPU_registers,
     // in the section about PPUDATA read buffer
     data_readbuf : u8,
+    scanline_cycle : u16,
+    scanline : u16,
 }
 
 const PALETTE_RAM_SIZE  : u16 = 0x0020;
@@ -149,6 +154,8 @@ impl PPU {
             address_first_write  : true,
             address_first_val  : 0,
             data_readbuf : 0,
+            scanline_cycle : 0,
+            scanline : 0,
         }
     }
 
@@ -275,6 +282,38 @@ impl PPU {
                             tile_attr_quadrant)
         }
     }
+
+    fn tick(&mut self) {
+        const CYCLES_PER_SCANLINE : u16 = 341;
+        const SCANLINES_PER_FRAME : u16 = 262;
+
+        self.scanline_cycle += 1;
+        if self.scanline_cycle == CYCLES_PER_SCANLINE {
+            self.scanline_cycle = 0;
+            self.scanline += 1;
+
+          if self.scanline == SCANLINES_PER_FRAME {
+            self.scanline = 0;
+          }
+        }
+
+        match self.scanline {
+            0..=239 => {
+                match self.scanline_cycle {
+                    0 => (), // idle cycle
+                    1..=256 => (), // tile data fetch
+                    _ => (), // TODO
+                };
+            }, // visible scanline
+            240 => (), // post-render scanline
+            241 => (), // first vblank scanline
+            242..=260 => (), // remainder of vblank
+            261 => (), // pre-render scanline
+            _ => panic!("invalid scanline: {}", self.scanline), 
+        };
+    }
+
+    // TODO check that t and v registers are working properly
 
     fn render_scanline_bg(&mut self, scanline : u8) {
 
@@ -484,37 +523,6 @@ impl PPU {
             self.render_scanline_sprites(scanline);
         }
     }
-
-    // pub fn render_to_picture(&mut self, picture : &mut super::graphics::Picture) {
-    //     let show_bg = (self.mask & 0x08) != 0;
-    //     let show_sprites = (self.mask & 0x10) != 0;
-
-    //     if show_bg {
-    //         for i in 0..240 {
-    //             self.render_scanline_bg(i);
-    //         }
-    //     }
-    //     // if bg is masked, fill the screen with the universal bg color
-    //     else {
-    //         let bg_color = self.mem.loadb(0x3F00);
-    //         let bg_color = PALETTE_BGR[bg_color as usize];
-
-    //         for i in 0..(SCREEN_SIZE / 3) {
-    //             let i = i as usize;
-    //             self.pixeldata[i*3 + 0] = bg_color.0;
-    //             self.pixeldata[i*3 + 1] = bg_color.1;
-    //             self.pixeldata[i*3 + 2] = bg_color.2;
-    //         }
-    //     }
-
-    //     if show_sprites {
-    //         for i in 0..240 {
-    //             self.render_scanline_sprites(i);
-    //         }
-    //     }
-
-    //     picture.update(&self.pixeldata);
-    // }
 
     pub fn get_pixeldata(&self) -> &[u8; SCREEN_SIZE] {
         &self.pixeldata
