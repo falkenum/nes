@@ -25,9 +25,6 @@ pub struct PPU {
     x : u8,
     w : bool,
 
-    // TODO is this var needed?
-    address_first_val   : u8,
-
     // required to correctly emulate reads from $2007,
     // look at https://wiki.nesdev.com/w/index.php/PPU_registers,
     // in the section about PPUDATA read buffer
@@ -155,8 +152,7 @@ impl PPU {
             v  : 0,
             x  : 0,
             t  : 0,
-            w  : true,
-            address_first_val  : 0,
+            w  : false,
             data_readbuf : 0,
             scanline_cycle : 0,
             scanline : 0,
@@ -213,7 +209,7 @@ impl PPU {
                 self.control = val;
 
                 // https://wiki.nesdev.com/w/index.php/PPU_scrolling#.242000_write
-                self.t &= ((val as u16) << 10) | 0b11110011_11111111;
+                self.t = (self.t & 0b11110011_11111111) | (((val & 0b11) as u16) << 10); 
             },
             MASK    => self.mask = val,
             STATUS  => (),
@@ -225,27 +221,29 @@ impl PPU {
             SCROLL  => {
                 // first write
                 if !self.w {
-                  self.t &= ((val as u16) >> 3) | 0b11111111_11100000;
-                  self.x &= val | 0b111111000;
+                  self.t = (self.t & 0b11111111_11100000) | (((val & 0b11111000) as u16) >> 3); 
+                  self.x = val & 0b00000111;
                   self.w = true;
                 }
                 // second write
                 else {
-                  self.t &= ((val as u16) << 12) | 0b10001111_11111111;
+                  self.t = (self.t & 0b10001111_11111111) | (((val & 0b111) as u16) << 12); 
                   self.t &= ((val as u16) << 5) | 0b11111100_00011111;
+                  self.t = (self.t & 0b11111100_00011111) | (((val & 0b11111000) as u16) << 2); 
                   self.w = false;
                 }
             },
             ADDRESS => {
                 // first write
                 if !self.w {
-                  self.t &= ((val as u16) << 8) | 0b11000000_11111111;
-                  self.t &= 0b01111111_11111111;
+                  // self.t &= ((val as u16) << 8) | 0b11000000_11111111;
+                  self.t = (self.t & 0b11000000_11111111) | (((val & 0b00111111) as u16) << 8); 
+                  self.t &= 0x3FFF; // zero bit 15
                   self.w = true;
                 }
                 // second write
                 else {
-                  self.t &= (val as u16) | 0xF0;
+                  self.t = (self.t & 0xFF00) | (val as u16);
                   self.v = self.t;
                   self.w = false;
                 }
