@@ -4,9 +4,96 @@ use super::reg_id::*;
 const SCREEN_WIDTH : usize = 256;
 
 // TODO test 8x16 sprite horizontal flip
-
 // TODO test sprite overlap
 // TODO test sprite and bg priority
+
+// t, v, x, w reg info: https://wiki.nesdev.com/w/index.php/PPU_scrolling
+#[test]
+fn internal_regs_on_addr_write() {
+    let mut p = PPU::test();
+
+    // first write
+    p.t = 0b01111111_00000000;
+    p.w = false;
+    p.reg_write(ADDRESS, 0b11000000);
+    assert_eq!(p.t, 0x0000);
+    assert_eq!(p.w, true);
+
+    p.t = 0b10000000_11111111;
+    p.w = false;
+    p.reg_write(ADDRESS, 0b00111111);
+    assert_eq!(p.t, 0b10111111_11111111);
+    assert_eq!(p.w, true);
+
+    // second write
+    p.t = 0xFF00;
+    p.v = 0;
+    p.w = true;
+    p.reg_write(ADDRESS, 0xFF);
+    assert_eq!(p.t, 0xFFFF);
+    assert_eq!(p.t, p.v);
+    assert_eq!(p.w, false);
+}
+
+#[test]
+fn internal_regs_on_scroll_write() {
+    let mut p = PPU::test();
+
+    // first write
+    p.t = 0xFFFF;
+    p.x = 0x00;
+    p.w = false;
+    p.reg_write(SCROLL, 0b00000111);
+    assert_eq!(p.t, 0xFFE0);
+    assert_eq!(p.x, 0x07);
+    assert_eq!(p.w, true);
+
+    p.t = !0xFFFF;
+    p.x = !0x00;
+    p.w = false;
+    p.reg_write(SCROLL, !0b00000111);
+    assert_eq!(p.t, !0xFFE0);
+    assert_eq!(p.x, !0x07);
+    assert_eq!(p.w, true);
+
+    // second write
+    p.t = 0b00001111_11100000;
+    p.w = true;
+    p.reg_write(SCROLL, 0b00000111);
+    assert_eq!(p.t, 0b01110100_00000000);
+    assert_eq!(p.w, false);
+
+    p.t = !0b00001111_11100000;
+    p.w = true;
+    p.reg_write(SCROLL, !0b00000111);
+    assert_eq!(p.t, !0b01110100_00000000);
+    assert_eq!(p.w, false);
+}
+
+#[test]
+fn internal_regs_on_status_read() {
+    let mut p = PPU::test();
+
+    p.w = true;
+    p.reg_read(STATUS);
+    assert_eq!(p.w, false);
+
+    p.reg_read(STATUS);
+    assert_eq!(p.w, false);
+}
+
+#[test]
+fn internal_regs_on_ctrl_write() {
+    let mut p = PPU::test();
+
+    p.t = 0xFFFF;
+    p.reg_write(CONTROL, 0xFA);
+    assert_eq!(p.t, 0xF3FF);
+
+    p.t = 0x0000;
+    p.reg_write(CONTROL, 0x03);
+    assert_eq!(p.t, 0x0A00);
+}
 
 #[test]
 fn sprite_8x16_vert_flip() {
@@ -823,21 +910,21 @@ fn vram_inc() {
     let mut p = PPU::test();
 
     p.reg_write(CONTROL, 0b0000_0000);
-    assert_eq!(p.address, 0x0000);
+    assert_eq!(p.v, 0x0000);
     p.reg_write(DATA, 0xFF);
-    assert_eq!(p.address, 0x0001);
+    assert_eq!(p.v, 0x0001);
 
     // setting bit 7 because it exposes a bug I previously had
     p.reg_write(CONTROL, 0b1000_0100);
     p.reg_write(DATA, 0xFF);
-    assert_eq!(p.address, 0x0021);
+    assert_eq!(p.v, 0x0021);
 
     p.reg_read(DATA);
-    assert_eq!(p.address, 0x0041);
+    assert_eq!(p.v, 0x0041);
 
     p.reg_write(CONTROL, 0b0000_0000);
     p.reg_read(DATA);
-    assert_eq!(p.address, 0x0042);
+    assert_eq!(p.v, 0x0042);
 }
 
 #[test]
@@ -1107,50 +1194,50 @@ fn mappings() {
 #[test]
 fn address_reg() {
     let mut p = PPU::test();
-    assert_eq!(p.address, 0x0000);
+    assert_eq!(p.v, 0x0000);
 
     p.reg_write(ADDRESS, 0x3F);
-    assert_eq!(p.address, 0x0000);
+    assert_eq!(p.v, 0x0000);
     p.reg_write(ADDRESS, 0x00);
-    assert_eq!(p.address, 0x3F00);
+    assert_eq!(p.v, 0x3F00);
 
     p.reg_write(ADDRESS, 0x12);
-    assert_eq!(p.address, 0x3F00);
+    assert_eq!(p.v, 0x3F00);
     p.reg_write(ADDRESS, 0x34);
-    assert_eq!(p.address, 0x1234);
+    assert_eq!(p.v, 0x1234);
 
     p.reg_write(ADDRESS, 0x55);
-    assert_eq!(p.address, 0x1234);
+    assert_eq!(p.v, 0x1234);
     p.reg_write(ADDRESS, 0x55);
-    assert_eq!(p.address, 0x1555);
+    assert_eq!(p.v, 0x1555);
 }
 
 #[test]
 fn data_reg() {
     let mut p = PPU::test();
-    assert_eq!(p.address, 0x0000);
+    assert_eq!(p.v, 0x0000);
 
     p.reg_write(ADDRESS, 0x3F);
-    assert_eq!(p.address, 0x0000);
+    assert_eq!(p.v, 0x0000);
     p.reg_write(ADDRESS, 0x00);
-    assert_eq!(p.address, 0x3F00);
+    assert_eq!(p.v, 0x3F00);
 
     p.reg_write(DATA, 0xFF);
 
     assert_eq!(p.mem.loadb(0x3F00), 0xFF);
-    assert_eq!(p.address, 0x3F01);
+    assert_eq!(p.v, 0x3F01);
 
     p.reg_write(ADDRESS, 0x3F);
     p.reg_write(ADDRESS, 0x00);
     assert_eq!(p.reg_read(DATA), 0xFF);
-    assert_eq!(p.address, 0x3F01);
+    assert_eq!(p.v, 0x3F01);
 
     p.reg_write(ADDRESS, 0x20);
     p.reg_write(ADDRESS, 0x00);
     p.reg_write(DATA, 0x00);
     p.reg_write(DATA, 0x01);
     p.reg_write(DATA, 0x02);
-    assert_eq!(p.address, 0x2003);
+    assert_eq!(p.v, 0x2003);
 
     p.reg_write(ADDRESS, 0x20);
     p.reg_write(ADDRESS, 0x00);
@@ -1161,5 +1248,5 @@ fn data_reg() {
     assert_eq!(p.reg_read(DATA), 0x00);
     assert_eq!(p.reg_read(DATA), 0x01);
     assert_eq!(p.reg_read(DATA), 0x02);
-    assert_eq!(p.address, 0x2004);
+    assert_eq!(p.v, 0x2004);
 }

@@ -20,8 +20,10 @@ pub struct PPU {
     scroll              : u8,
 
     // https://wiki.nesdev.com/w/index.php/PPU_scrolling
-    address             : u16,
-    address_first_write : bool,
+    v : u16,
+    t : u16,
+    x : u8,
+    w : bool,
 
     // TODO is this var needed?
     address_first_val   : u8,
@@ -71,7 +73,7 @@ struct PPUMem {
 impl Memory for PPUMem {
     fn loadb(&self, addr : u16) -> u8 {
         // mirror above 3FFF
-        let addr = addr & 0x3FFF;
+        // let addr = addr & 0x3FFF;
 
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow().loadb(addr),
@@ -90,7 +92,7 @@ impl Memory for PPUMem {
     }
     fn storeb(&mut self, addr : u16, val : u8) {
         // mirror above 3FFF
-        let addr = addr & 0x3FFF;
+        // let addr = addr & 0x3FFF;
 
         match addr {
             CART_FIRST...CART_LAST => self.cart.borrow_mut().storeb(addr, val),
@@ -150,8 +152,10 @@ impl PPU {
             status   : 0,
             oam_addr : 0,
             scroll   : 0,
-            address  : 0,
-            address_first_write  : true,
+            v  : 0,
+            x  : 0,
+            t  : 0,
+            w  : true,
             address_first_val  : 0,
             data_readbuf : 0,
             scanline_cycle : 0,
@@ -170,17 +174,23 @@ impl PPU {
             CONTROL => 0,
             MASK    => 0,
             // TODO reset vblank flag after read of $2002
-            STATUS  => self.status,
+            STATUS  => {
+                self.w = false;
+                self.status
+            },
             OAMADDR => 0,
             OAMDATA => self.oam[self.oam_addr as usize],
             SCROLL  => 0,
             ADDRESS => 0,
+
+            // TODO https://wiki.nesdev.com/w/index.php/PPU_scrolling#.242007_reads_and_writes
+            // fix read/write behavior during rendering (not an important feature)
             DATA    => {
-                let addr = self.address;
+                let addr = self.v;
                 let inc_amount =
                     if (self.control & 4) >> 2 == 1 { 0x20 } else { 0x01 };
 
-                self.address = self.address.wrapping_add(inc_amount);
+                self.v = self.v.wrapping_add(inc_amount);
 
                 if addr < PALETTE_RAM_FIRST {
                     let ret = self.data_readbuf;
@@ -199,7 +209,12 @@ impl PPU {
     pub fn reg_write(&mut self, reg_num : u8, val : u8) {
         use self::reg_id::*;
         match reg_num {
-            CONTROL => self.control = val,
+            CONTROL => {
+                self.control = val;
+
+                // https://wiki.nesdev.com/w/index.php/PPU_scrolling#.242000_write
+                self.t &= ((val as u16) << 10) | 0b11110011_11111111;
+            },
             MASK    => self.mask = val,
             STATUS  => (),
             OAMADDR => self.oam_addr = val,
@@ -207,30 +222,41 @@ impl PPU {
                 self.oam[self.oam_addr as usize] = val;
                 self.oam_addr = self.oam_addr.wrapping_add(1);
             },
-            // TODO scrolling
-            SCROLL  => match val {
-                0 => (),
-                _ => unimplemented!("scrolling"),
+            SCROLL  => {
+                // first write
+                if !self.w {
+                  self.t &= ((val as u16) >> 3) | 0b11111111_11100000;
+                  self.x &= val | 0b111111000;
+                  self.w = true;
+                }
+                // second write
+                else {
+                  self.t &= ((val as u16) << 12) | 0b10001111_11111111;
+                  self.t &= ((val as u16) << 5) | 0b11111100_00011111;
+                  self.w = false;
+                }
             },
             ADDRESS => {
-                if self.address_first_write {
-                    self.address_first_val = val;
-                    self.address_first_write = false;
+                // first write
+                if !self.w {
+                  self.t &= ((val as u16) << 8) | 0b11000000_11111111;
+                  self.t &= 0b01111111_11111111;
+                  self.w = true;
                 }
+                // second write
                 else {
-                    // shift up the value from the first write
-                    self.address = ((self.address_first_val as u16) << 8
-                                    | val as u16) // add in the new value
-                                    & 0x3FFF; // mirror above 3FFF
-                    self.address_first_write = true;
+                  self.t &= (val as u16) | 0xF0;
+                  self.v = self.t;
+                  self.w = false;
                 }
             },
+            // https://wiki.nesdev.com/w/index.php/PPU_scrolling#.242007_reads_and_writes
             DATA    => {
-                self.mem.storeb(self.address, val);
+                self.mem.storeb(self.v, val);
                 let inc_amount =
                     if (self.control & 4) >> 2 == 1 { 0x20 } else { 0x01 };
 
-                self.address = self.address.wrapping_add(inc_amount);
+                self.v = self.v.wrapping_add(inc_amount);
             },
             _ => panic!("invalid ppu reg num"),
         }
