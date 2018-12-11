@@ -254,6 +254,7 @@ impl PPU {
                 let inc_amount =
                     if (self.control & 4) >> 2 == 1 { 0x20 } else { 0x01 };
 
+                // TODO increment differently during/outside of rendering scanlines
                 self.v = self.v.wrapping_add(inc_amount);
             },
             _ => panic!("invalid ppu reg num"),
@@ -325,8 +326,38 @@ impl PPU {
             0..=239 => {
                 match self.scanline_cycle {
                     0 => (), // idle cycle
-                    1..=256 => (), // tile data fetch
-                    _ => (), // TODO
+                    // 1..=256 => (), // tile data fetch
+
+                    // https://wiki.nesdev.com/w/index.php/PPU_scrolling#Y_increment
+                    // TODO test
+                    // TODO check if rendering is enabled
+                    256 => {
+                        if (self.v & 0x7000) != 0x7000 { // if fine y < 7
+                            self.v += 0x1000; // increment fine y
+                        }
+                        else {
+                            self.v &= !0x7000; // fine y = 0
+                            let mut coarse_y = (self.v & 0x03E0) >> 5;
+                            if coarse_y == 29 { // if we are at the bottom tile
+                                coarse_y = 0; // reset tile num
+                                self.v ^= 0x0800; // switch vertical nametable
+                            }
+                            else if coarse_y == 31 { // if tile out of bounds
+                                coarse_y = 0;
+                            }
+                            else {
+                                coarse_y += 1;
+                            }
+                            self.v = (self.v & !0x03E0) | (coarse_y << 5); // put coarse_y back in v
+                        }
+                    },
+                    // https://wiki.nesdev.com/w/index.php/PPU_scrolling#At_dot_257_of_each_scanline
+                    // TODO test
+                    257 => {
+                        // copy horizontal position over to v
+                        self.v = (self.v & !0x041F) | (self.t & 0x041F);
+                    },
+                    _ => unimplemented!(), // TODO
                 };
             }, // visible scanline
             240 => (), // post-render scanline
@@ -337,16 +368,12 @@ impl PPU {
         };
     }
 
-    // TODO check that t and v registers are working properly
-
     fn render_scanline_bg(&mut self, scanline : u8) {
 
         // control:
 
         // sprite pt
         // generate nmi
-
-        // TODO scrolling
 
         let nt_base_bits = (self.control & 0b00000011) as u16;
         let nt_base = 0x2000 | (nt_base_bits << 10);
@@ -534,6 +561,18 @@ impl PPU {
 
     pub fn nmi_enabled(&self) -> bool {
         (self.control & 0x80) != 0
+    }
+
+    fn bg_enabled(&self) -> bool {
+        (self.mask & 0x08) != 0
+    }
+
+    fn sprites_enabled(&self) -> bool {
+        (self.mask & 0x10) != 0
+    }
+
+    fn rendering_enabled(&self) -> bool {
+        self.bg_enabled() || self.sprites_enabled()
     }
 
     pub fn render_scanline(&mut self, scanline : u8) {
