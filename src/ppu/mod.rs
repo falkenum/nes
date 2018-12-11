@@ -330,8 +330,7 @@ impl PPU {
 
                     // https://wiki.nesdev.com/w/index.php/PPU_scrolling#Y_increment
                     // TODO test
-                    // TODO check if rendering is enabled
-                    256 => {
+                    256 => if self.rendering_enabled() {
                         if (self.v & 0x7000) != 0x7000 { // if fine y < 7
                             self.v += 0x1000; // increment fine y
                         }
@@ -353,11 +352,23 @@ impl PPU {
                     },
                     // https://wiki.nesdev.com/w/index.php/PPU_scrolling#At_dot_257_of_each_scanline
                     // TODO test
-                    257 => {
+                    257 => if self.rendering_enabled() {
                         // copy horizontal position over to v
                         self.v = (self.v & !0x041F) | (self.t & 0x041F);
                     },
                     _ => unimplemented!(), // TODO
+                };
+
+                // TODO test
+                if (self.scanline_cycle <= 256 || self.scanline_cycle >= 328) &&
+                (self.scanline_cycle % 8) == 0 { 
+                    if (self.v & 0x001F) == 31 { // if coarse x == 31
+                        self.v &= !0x001F; // coarse x = 0
+                        self.v ^= 0x0400; // switch horizontal nametable
+                    }
+                    else {
+                        self.v += 1;
+                    }
                 };
             }, // visible scanline
             240 => (), // post-render scanline
