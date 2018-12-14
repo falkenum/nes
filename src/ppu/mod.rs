@@ -31,6 +31,8 @@ pub struct PPU {
     data_readbuf : u8,
     scanline_cycle : u16,
     scanline : u16,
+
+    even_frame : bool,
 }
 
 const PALETTE_RAM_SIZE  : u16 = 0x0020;
@@ -156,6 +158,7 @@ impl PPU {
             data_readbuf : 0,
             scanline_cycle : 0,
             scanline : 0,
+            even_frame : true,
         }
     }
 
@@ -308,6 +311,38 @@ impl PPU {
         }
     }
 
+    // https://wiki.nesdev.com/w/index.php/PPU_scrolling#Y_increment
+    fn increment_vertical(&mut self) {
+        if (self.v & 0x7000) != 0x7000 { // if fine y < 7
+            self.v += 0x1000; // increment fine y
+        }
+        else {
+            self.v &= !0x7000; // fine y = 0
+            let mut coarse_y = (self.v & 0x03E0) >> 5;
+            if coarse_y == 29 { // if we are at the bottom tile
+                coarse_y = 0; // reset tile num
+                self.v ^= 0x0800; // switch vertical nametable
+            }
+            else if coarse_y == 31 { // if tile out of bounds
+                coarse_y = 0;
+            }
+            else {
+                coarse_y += 1;
+            }
+            self.v = (self.v & !0x03E0) | (coarse_y << 5); // put coarse_y back in v
+        }
+    }
+
+    fn increment_horizontal(&mut self) {
+        if (self.v & 0x001F) == 31 { // if coarse x == 31
+            self.v &= !0x001F; // coarse x = 0
+            self.v ^= 0x0400; // switch horizontal nametable
+        }
+        else {
+            self.v += 1;
+        }
+    }
+
     fn tick(&mut self) {
         const CYCLES_PER_SCANLINE : u16 = 341;
         const SCANLINES_PER_FRAME : u16 = 262;
@@ -318,63 +353,52 @@ impl PPU {
             self.scanline += 1;
 
           if self.scanline == SCANLINES_PER_FRAME {
-            self.scanline = 0;
+              self.scanline = 0;
+              self.even_frame = !self.even_frame;
           }
         }
 
         match self.scanline {
-            0..=239 => {
+            0..=239 => if self.rendering_enabled() {
+                // dot 0: skip on odd frames, idle otherwise
+                // dot 256: inc vert(v)
+                // every 8th dot: inc hor(v)
+                // dot 257: hor(v) = hor(t)
                 match self.scanline_cycle {
-                    0 => (), // idle cycle
+                    0 => (), // idle cycle, 
                     // 1..=256 => (), // tile data fetch
 
-                    // https://wiki.nesdev.com/w/index.php/PPU_scrolling#Y_increment
-                    // TODO test
-                    256 => if self.rendering_enabled() {
-                        if (self.v & 0x7000) != 0x7000 { // if fine y < 7
-                            self.v += 0x1000; // increment fine y
-                        }
-                        else {
-                            self.v &= !0x7000; // fine y = 0
-                            let mut coarse_y = (self.v & 0x03E0) >> 5;
-                            if coarse_y == 29 { // if we are at the bottom tile
-                                coarse_y = 0; // reset tile num
-                                self.v ^= 0x0800; // switch vertical nametable
-                            }
-                            else if coarse_y == 31 { // if tile out of bounds
-                                coarse_y = 0;
-                            }
-                            else {
-                                coarse_y += 1;
-                            }
-                            self.v = (self.v & !0x03E0) | (coarse_y << 5); // put coarse_y back in v
-                        }
+                    256 => {
+                        self.increment_vertical();
                     },
+
                     // https://wiki.nesdev.com/w/index.php/PPU_scrolling#At_dot_257_of_each_scanline
-                    // TODO test
-                    257 => if self.rendering_enabled() {
+                    257 => {
                         // copy horizontal position over to v
                         self.v = (self.v & !0x041F) | (self.t & 0x041F);
                     },
-                    _ => unimplemented!(), // TODO
+                    _ => (),
                 };
 
-                // TODO test
                 if (self.scanline_cycle <= 256 || self.scanline_cycle >= 328) &&
                 (self.scanline_cycle % 8) == 0 { 
-                    if (self.v & 0x001F) == 31 { // if coarse x == 31
-                        self.v &= !0x001F; // coarse x = 0
-                        self.v ^= 0x0400; // switch horizontal nametable
-                    }
-                    else {
-                        self.v += 1;
-                    }
+                    self.increment_horizontal();
+                    // get tile data
                 };
+
             }, // visible scanline
             240 => (), // post-render scanline
             241 => (), // first vblank scanline
             242..=260 => (), // remainder of vblank
-            261 => (), // pre-render scanline
+
+            261 => { // pre-render scanline
+                // dot 1: clear vblank, sprite 0, overflow
+                // dot 257: hor(v) = hor(t)
+                // dots 280 - 304: vert(v) = vert(t)
+                // dots 321-336: tile fetches
+                // dots 328 and 336: inc hor(v)
+
+            },
             _ => panic!("invalid scanline: {}", self.scanline), 
         };
     }

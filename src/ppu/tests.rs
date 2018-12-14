@@ -13,6 +13,96 @@ const SCREEN_WIDTH : usize = 256;
 // TODO test sprite overlap
 // TODO test sprite and bg priority
 
+#[test]
+fn horizontal_scroll_copy() {
+    let mut p = PPU::test();
+    // enable rendering
+    p.mask = 0x18;
+
+    p.scanline_cycle = 256;
+    p.t = 0x041F;
+    p.v = 0;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x041F);
+}
+
+#[test]
+fn horizontal_scroll_inc() {
+    // cycle <= 256 || >= 328, cycle % 8 == 0
+    // scanline == 261 || 0 to 239
+
+    // cycle > 256 || < 328 || cycle % 8 != 0 (nothing happens)
+
+    let mut p = PPU::test();
+    // enable rendering
+    p.mask = 0x18;
+
+    // scanline = 0, cycle = 8, coarse x = 0
+    p.scanline_cycle = 7;
+    p.v = 0;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x0001);
+
+    // scanline = 0, cycle = 8, coarse x = 31
+    p.scanline_cycle = 7;
+    p.v = 0x1F;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x0400);
+
+    // scanline = 0, cycle = 1, coarse x = 0
+    p.scanline_cycle = 0;
+    p.v = 0;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x0000);
+
+    // scanline = 0, cycle = 264, coarse x = 0
+    p.scanline_cycle = 263;
+    p.v = 0;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x0000);
+
+    // scanline = 0, cycle = 328, coarse x = 0
+    p.scanline_cycle = 327;
+    p.v = 0;
+    p.tick();
+    assert_eq_hex_int!(p.v, 0x0001);
+}
+
+#[test]
+fn vertical_scroll_inc() {
+    let mut p = PPU::test();
+    // enable rendering
+    p.mask = 0x18;
+
+    // should increment fine y (bit 12)
+    p.scanline_cycle = 255;
+    p.v = 0;
+    p.tick();
+    // at dot 256, coarse x will also increment
+    assert_eq_hex_int!(p.v, 0x1001);
+
+    p.scanline_cycle = 255;
+    // fine y = 7, coarse y = 0
+    p.v = 0x7000;
+    p.tick();
+    // should increment coarse y and zero fine y
+    assert_eq_hex_int!(p.v, 0x0021);
+
+    p.scanline_cycle = 255;
+    // fine y = 7, coarse y = 29
+    p.v = 0x73A0;
+    p.tick();
+    // should zero coarse y, zero fine y, and change nametable
+    assert_eq_hex_int!(p.v, 0x0801);
+
+    p.scanline_cycle = 255;
+    // fine y = 7, coarse y = 31
+    p.v = 0x73E0;
+    p.tick();
+    // should zero coarse y, zero fine y
+    assert_eq_hex_int!(p.v, 0x0001);
+}
+
 // t, v, x, w reg info: https://wiki.nesdev.com/w/index.php/PPU_scrolling
 #[test]
 fn internal_regs_on_addr_write() {
