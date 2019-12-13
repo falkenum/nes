@@ -3,7 +3,7 @@ This is a work-in-progress emulator for the Nintendo Entertainment System, writt
 # Demo Video
 https://youtu.be/-IqRxXROGi4
 # Project Status
-The emulator currently runs Donkey Kong without audio. In theory, it should also run any other game that doesn't require any of the items/features in the Project TODO section. So far, I've only tested Donkey Kong.
+The emulator currently runs Donkey Kong without audio.
 # Project TODO
   * implement sprite zero hit (and sprite overflow? is that used by any game?)
   * fix individual scanline rendering (currently accurate in rendering whole frames at once, not in parallel with CPU)
